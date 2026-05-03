@@ -1,7 +1,8 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Form, Response
 from pydantic import BaseModel
 from anthropic import Anthropic
 from dotenv import load_dotenv
+from twilio.twiml.messaging_response import MessagingResponse
 
 load_dotenv()
 
@@ -71,3 +72,23 @@ def chat(mensaje: Mensaje):
     historial.append({"role": "assistant", "content": texto_respuesta})
 
     return {"respuesta": texto_respuesta}
+
+@app.post("/whatsapp")
+async def whatsapp(Body: str = Form(...)):
+    # Body es el mensaje que mandó el usuario por WhatsApp
+    historial.append({"role": "user", "content": Body})
+
+    respuesta = cliente.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=1024,
+        system=construir_system_prompt(),
+        messages=historial,
+    )
+
+    texto_respuesta = respuesta.content[0].text
+    historial.append({"role": "assistant", "content": texto_respuesta})
+
+    # Twilio espera la respuesta en formato TwiML, no JSON
+    twiml = MessagingResponse()
+    twiml.message(texto_respuesta)
+    return Response(content=str(twiml), media_type="application/xml")
