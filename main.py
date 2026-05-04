@@ -3,10 +3,13 @@ from pydantic import BaseModel
 from anthropic import Anthropic
 from dotenv import load_dotenv
 from twilio.twiml.messaging_response import MessagingResponse
+from database import SessionLocal, Historial, crear_tablas, Base
 
 load_dotenv()
 
 app = FastAPI()
+app = FastAPI()
+crear_tablas()  # crea las tablas al arrancar el servidor
 cliente = Anthropic()
 
 # ── CATÁLOGO ───────────────────────────────────────────────────────────
@@ -74,21 +77,40 @@ def chat(mensaje: Mensaje):
     return {"respuesta": texto_respuesta}
 
 @app.post("/whatsapp")
-async def whatsapp(Body: str = Form(...)):
-    # Body es el mensaje que mandó el usuario por WhatsApp
+async def whatsapp(Body: str = Form(...), From: str = Form(...)):
+    numero = From
+    db = SessionLocal()
+
+    # Recupera el historial de este usuario desde la base de datos
+    mensajes_db = db.query(Historial).filter(
+        Historial.numero == numero
+    ).order_by(Historial.fecha).all()
+
+    # Convierte a formato que entiende Claude
+    historial = [{"role": m.role, "content": m.contenido} for m in mensajes_db]
+
+    # Agrega el mensaje nuevo
     historial.append({"role": "user", "content": Body})
 
+    # Guarda el mensaje del usuario en la base de datos
+    db.add(Historial(numero=numero, role="user", contenido=Body))
+    db.commit()
+
+    # Llama a Claude
     respuesta = cliente.messages.create(
         model="claude-sonnet-4-6",
         max_tokens=1024,
         system=construir_system_prompt(),
-        messages=historial,
+        messages=historial[-10:],  # solo los últimos 10 mensajes
     )
 
     texto_respuesta = respuesta.content[0].text
-    historial.append({"role": "assistant", "content": texto_respuesta})
 
-    # Twilio espera la respuesta en formato TwiML, no JSON
+    # Guarda la respuesta en la base de datos
+    db.add(Historial(numero=numero, role="assistant", contenido=texto_respuesta))
+    db.commit()
+    db.close()
+
     twiml = MessagingResponse()
     twiml.message(texto_respuesta)
     return Response(content=str(twiml), media_type="application/xml")
