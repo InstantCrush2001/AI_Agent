@@ -8,7 +8,6 @@ from database import SessionLocal, Historial, crear_tablas, Base
 load_dotenv()
 
 app = FastAPI()
-app = FastAPI()
 crear_tablas()  # crea las tablas al arrancar el servidor
 cliente = Anthropic()
 
