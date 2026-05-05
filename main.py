@@ -22,7 +22,7 @@ def construir_system_prompt():
     db.close()
     
     productos_texto = "\n".join(
-        f"- {p.nombre} | ${p.precio} MXN "
+        f"- {p.nombre} | ${p.precio} MXN | Stock: {p.stock} | Año: {p.año} | Piezas: {p.Pz_actuales}/{p.Pz_totales}"
         for p in productos
     )
     return f"""Eres el asistente virtual de Bionicle Saga MX, una tienda que conecta
