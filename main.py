@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from anthropic import Anthropic
 from dotenv import load_dotenv
 from twilio.twiml.messaging_response import MessagingResponse
-from database import SessionLocal, Historial, crear_tablas, Base
+from database import SessionLocal, Historial, Producto, crear_tablas
 
 load_dotenv()
 
@@ -11,22 +11,19 @@ app = FastAPI()
 crear_tablas()  # crea las tablas al arrancar el servidor
 cliente = Anthropic()
 
-# ── CATÁLOGO ───────────────────────────────────────────────────────────
-catalogo = [
-    {"nombre": "Toa Metru Vakama",  "precio": 350, "stock": 1, "piezas": "70/72"},
-    {"nombre": "Brutaka",           "precio": 890, "stock": 1, "piezas": "103/120"},
-    {"nombre": "Piraka Reidak",     "precio": 520, "stock": 1, "piezas": "40/40"},
-    {"nombre": "Matoran Piruk",     "precio": 180, "stock": 1, "piezas": "100/104"},
-]
 
 # ── HISTORIAL ──────────────────────────────────────────────────────────
 historial = []
 
 # ── SYSTEM PROMPT ──────────────────────────────────────────────────────
 def construir_system_prompt():
+    db = SessionLocal()
+    productos = db.query(Producto).all()
+    db.close()
+    
     productos_texto = "\n".join(
-        f"- {p['nombre']} | ${p['precio']} MXN | Stock: {p['stock']} | Piezas: {p['piezas']}"
-        for p in catalogo
+        f"- {p.nombre} | ${p.precio} MXN | Stock: {p.stock} | {p.descripcion}"
+        for p in productos
     )
     return f"""Eres el asistente virtual de Bionicle Saga MX, una tienda que conecta
 a compradores con vendedores de Bionicle.
@@ -36,6 +33,7 @@ Tu trabajo es:
 2. Responder preguntas sobre precio, estética, año de lanzamiento y nombre de su colección
 3. Indicar precios y disponibilidad
 4. Guiar al cliente hacia hacer un pedido
+- No mostrar el catálogo completo, sólo lo más parecido a lo que pide el cliente
 
 CATÁLOGO ACTUAL:
 {productos_texto}
