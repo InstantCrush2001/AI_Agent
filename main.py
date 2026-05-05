@@ -33,7 +33,6 @@ Tu trabajo es:
 2. Responder preguntas sobre precio, estética, año de lanzamiento y nombre de su colección
 3. Indicar precios y disponibilidad
 4. Guiar al cliente hacia hacer un pedido
-- No mostrar el catálogo completo, sólo lo más parecido a lo que pide el cliente
 
 CATÁLOGO ACTUAL:
 {productos_texto}
