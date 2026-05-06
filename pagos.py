@@ -29,4 +29,4 @@ def crear_link_pago(producto_nombre: str, precio: int, pedido_id: int) -> str:
 
     # init_point es el link de pago real
     # sandbox_init_point es el link de prueba
-    return preference["sandbox_init_point"]
+    return preference["init_point"]
