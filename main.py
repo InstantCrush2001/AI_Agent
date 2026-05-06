@@ -112,9 +112,12 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
     db.commit()
 
     if texto_respuesta.startswith("COMPRA:"): # Detectar la intención de compra
+        print(f"DEBUG - texto_respuesta: '{texto_respuesta}'")
         try:
             _, datos = texto_respuesta.split("COMPRA:")
+            print(f"DEBUG - datos: '{datos}'")
             nombre_producto, nombre_cliente, direccion = datos.split("|")
+            print(f"DEBUG - producto: '{nombre_producto}', cliente: '{nombre_cliente}', direccion: '{direccion}'")
 
             # Verificar producto en base de datos
             producto = db.query(Producto).filter(
