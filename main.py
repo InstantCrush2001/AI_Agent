@@ -126,7 +126,7 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
             ).first()
             print(f"DEBUG - producto encontrado: {producto}")
 
-            if producto and producto.stock > 0: # Crear pedido en PostgreSQL
+            if producto: #and producto.stock > 0: # Crear pedido en PostgreSQL
                 print(f"DEBUG - stock ok, creando pedido...")
                 try:
                     pedido = Pedido(
