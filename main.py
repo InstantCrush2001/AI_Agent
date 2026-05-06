@@ -120,9 +120,11 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
             print(f"DEBUG - producto: '{nombre_producto}', cliente: '{nombre_cliente}', direccion: '{direccion}'")
 
             # Verificar producto en base de datos
+            print(f"DEBUG - buscando producto: '{nombre_producto.strip()}'")
             producto = db.query(Producto).filter(
                 Producto.nombre.ilike(f"%{nombre_producto.strip()}%")
             ).first()
+            print(f"DEBUG - producto encontrado: {producto}")
 
             if producto and producto.stock > 0: # Crear pedido en PostgreSQL
                 pedido = Pedido(
