@@ -127,26 +127,31 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
             print(f"DEBUG - producto encontrado: {producto}")
 
             if producto and producto.stock > 0: # Crear pedido en PostgreSQL
-                pedido = Pedido(
-                    numero=numero,
-                    producto=producto.nombre,
-                    precio=producto.precio,
-                    nombre_cliente=nombre_cliente.strip(),
-                    direccion=direccion.strip(),
-                    estado="pendiente"
-                )
-                db.add(pedido)
-                db.commit()
+                print(f"DEBUG - stock ok, creando pedido...")
+                try:
+                    pedido = Pedido(
+                        numero=numero,
+                        producto=producto.nombre,
+                        precio=producto.precio,
+                        nombre_cliente=nombre_cliente.strip(),
+                        direccion=direccion.strip(),
+                        estado="pendiente"
+                    )
+                    db.add(pedido)
+                    db.commit()
+                    print(f"DEBUG - pedido creado id: {pedido.id}")
 
-                # Generar link de pago
-                link = crear_link_pago(producto.nombre, producto.precio, pedido.id)
+                    link = crear_link_pago(producto.nombre, producto.precio, pedido.id) # Generar link de pago
+                    print(f"DEBUG - link generado: {link}")
 
-                texto_respuesta = f"Perfecto {nombre_cliente.strip()}, aquí está tu link de pago por ${producto.precio} MXN: {link}"
-            else:
-                texto_respuesta = "Lo siento, ese producto no está disponible en este momento."
+                    texto_respuesta = f"Perfecto {nombre_cliente.strip()}, aquí está tu link de pago por ${producto.precio} MXN: {link}"
 
+                except Exception as e:
+                    print(f"DEBUG - error interno: {e}")
+                    texto_respuesta = "Hubo un problema al procesar tu pedido. Por favor intenta de nuevo."
         except Exception as e:
-            texto_respuesta = "Hubo un problema al procesar tu pedido. Por favor intenta de nuevo."
+                    print(f"DEBUG - error interno: {e}")
+                    # texto_respuesta = "Hubo un problema al procesar tu pedido. Por favor intenta de nuevo."
 
     db.close()
     twiml = MessagingResponse()
