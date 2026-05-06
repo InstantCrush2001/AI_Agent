@@ -13,12 +13,8 @@ load_dotenv()
 app = FastAPI()
 crear_tablas()  # crea las tablas al arrancar el servidor
 cliente = Anthropic()
-
-
-# ── HISTORIAL ──────────────────────────────────────────────────────────
 historial = []
 
-# ── SYSTEM PROMPT ──────────────────────────────────────────────────────
 def construir_system_prompt():
     db = SessionLocal()
     productos = db.query(Producto).all()
@@ -47,7 +43,21 @@ Reglas importantes:
 - No inventes productos que no están en el catálogo
 - No usar emojis
 - No uses formato Markdown, asteriscos, ni negritas. Solo texto plano.
-- Sé breve: máximo 3-4 oraciones por respuesta"""
+- Sé breve: máximo 3-4 oraciones por respuesta
+
+- Cuando el cliente confirme que quiere comprar un producto específico 
+y te haya dado su nombre y dirección, responde EXACTAMENTE en este formato 
+y nada más:
+
+COMPRA:nombre_del_producto|nombre_cliente|dirección_completa
+
+Ejemplo:
+COMPRA:Brutaka|Juan García|Calle Reforma 123, CDMX
+
+- No agregues texto adicional cuando uses ese formato
+- Solo usa ese formato cuando tengas los tres datos confirmados
+
+"""
 
 # ── MODELO DE DATOS ────────────────────────────────────────────────────
 # Le dice a FastAPI qué forma tiene el JSON que va a recibir
@@ -80,23 +90,17 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
     numero = From
     db = SessionLocal()
 
-    # Recupera el historial de este usuario desde la base de datos
-    mensajes_db = db.query(Historial).filter(
-        Historial.numero == numero
+    mensajes_db = db.query(Historial).filter( # Recupera el historial de este usuario desde la base de datos
+    Historial.numero == numero
     ).order_by(Historial.fecha).all()
-
-    # Convierte a formato que entiende Claude
-    historial = [{"role": m.role, "content": m.contenido} for m in mensajes_db]
-
-    # Agrega el mensaje nuevo
-    historial.append({"role": "user", "content": Body})
-
-    # Guarda el mensaje del usuario en la base de datos
-    db.add(Historial(numero=numero, role="user", contenido=Body))
+    
+    historial = [{"role": m.role, "content": m.contenido} for m in mensajes_db] # Convierte a formato que entiende Claude
+    historial.append({"role": "user", "content": Body}) # Agrega el mensaje nuevo
+    
+    db.add(Historial(numero=numero, role="user", contenido=Body)) # Guarda el mensaje del usuario en la base de datos
     db.commit()
-
-    # Llama a Claude
-    respuesta = cliente.messages.create(
+    
+    respuesta = cliente.messages.create( # Llama a Claude
         model="claude-sonnet-4-6",
         max_tokens=1024,
         system=construir_system_prompt(),
@@ -104,12 +108,42 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
     )
 
     texto_respuesta = respuesta.content[0].text
-
-    # Guarda la respuesta en la base de datos
-    db.add(Historial(numero=numero, role="assistant", contenido=texto_respuesta))
+    db.add(Historial(numero=numero, role="assistant", contenido=texto_respuesta)) # Guarda la respuesta en la base de datos
     db.commit()
-    db.close()
 
+    if texto_respuesta.startswith("COMPRA:"): # Detectar la intención de compra
+        try:
+            _, datos = texto_respuesta.split("COMPRA:")
+            nombre_producto, nombre_cliente, direccion = datos.split("|")
+
+            # Verificar producto en base de datos
+            producto = db.query(Producto).filter(
+                Producto.nombre.ilike(f"%{nombre_producto.strip()}%")
+            ).first()
+
+            if producto and producto.stock > 0: # Crear pedido en PostgreSQL
+                pedido = Pedido(
+                    numero=numero,
+                    producto=producto.nombre,
+                    precio=producto.precio,
+                    nombre_cliente=nombre_cliente.strip(),
+                    direccion=direccion.strip(),
+                    estado="pendiente"
+                )
+                db.add(pedido)
+                db.commit()
+
+                # Generar link de pago
+                link = crear_link_pago(producto.nombre, producto.precio, pedido.id)
+
+                texto_respuesta = f"Perfecto {nombre_cliente.strip()}, aquí está tu link de pago por ${producto.precio} MXN: {link}"
+            else:
+                texto_respuesta = "Lo siento, ese producto no está disponible en este momento."
+
+        except Exception as e:
+            texto_respuesta = "Hubo un problema al procesar tu pedido. Por favor intenta de nuevo."
+
+    db.close()
     twiml = MessagingResponse()
     twiml.message(texto_respuesta)
     return Response(content=str(twiml), media_type="application/xml")

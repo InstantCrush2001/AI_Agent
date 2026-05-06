@@ -22,7 +22,6 @@ class Historial(Base):
     numero = Column(String(50))   # número de WhatsApp del usuario
     role = Column(String(20))     # "user" o "assistant"
     contenido = Column(Text)      # el texto del mensaje
-    estado = Column(String(20), default="pendiente")
     fecha = Column(DateTime, default=datetime.utcnow)
 
 class Pedido(Base):
@@ -35,6 +34,7 @@ class Pedido(Base):
     nombre_cliente = Column(String(100))
     direccion = Column(Text)
     fecha = Column(DateTime, default=datetime.utcnow)
+    estado = Column(String(20), default="pendiente")
 
 class Producto(Base):
     __tablename__ = "productos"
