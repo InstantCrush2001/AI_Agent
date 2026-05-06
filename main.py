@@ -1,9 +1,12 @@
-from fastapi import FastAPI, Form, Response
+from fastapi import FastAPI, Form, Response, Request
 from pydantic import BaseModel
 from anthropic import Anthropic
 from dotenv import load_dotenv
 from twilio.twiml.messaging_response import MessagingResponse
-from database import SessionLocal, Historial, Producto, crear_tablas
+from database import SessionLocal, Historial, Producto, Pedido, crear_tablas
+import mercadopago
+import os
+from pagos import crear_link_pago
 
 load_dotenv()
 
@@ -110,3 +113,30 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
     twiml = MessagingResponse()
     twiml.message(texto_respuesta)
     return Response(content=str(twiml), media_type="application/xml")
+
+@app.post("/webhook/mercadopago")
+async def webhook_mercadopago(request: Request):
+    data = await request.json()
+    
+    # MercadoPago manda diferentes tipos de notificaciones
+    # solo nos interesan las de pagos aprobados
+    if data.get("type") == "payment":
+        payment_id = data["data"]["id"]
+        
+        # Consultamos el pago para obtener los detalles
+        sdk = mercadopago.SDK(os.environ.get("MP_ACCESS_TOKEN"))
+        payment = sdk.payment().get(payment_id)
+        payment_info = payment["response"]
+        
+        if payment_info["status"] == "approved":
+            pedido_id = payment_info["external_reference"]
+            
+            # Actualizamos el pedido en la base de datos
+            db = SessionLocal()
+            pedido = db.query(Pedido).filter_by(id=int(pedido_id)).first()
+            if pedido:
+                pedido.estado = "pagado"
+                db.commit()
+            db.close()
+    
+    return {"status": "ok"}
