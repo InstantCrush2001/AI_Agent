@@ -22,7 +22,7 @@ def construir_system_prompt():
     db.close()
     
     productos_texto = "\n".join(
-        f"- {p.nombre} | ${p.precio} MXN| Piezas: "
+        f"- {p.nombre} | clave del producto: {p.clave_prod}| ${p.precio} MXN | {p.stock} piezas | marca: {p.marca}"
         for p in productos
     )
     return f"""Eres el asistente virtual de MEDICAL SUPPLIES MID, una tienda en línea
@@ -39,10 +39,10 @@ CATÁLOGO ACTUAL:
 
 Reglas importantes:
 - Responde siempre en español, de forma amable y cálida
-- Si un producto no tiene stock, dilo claramente y ofrece alternativas
+- Si un producto no tiene stock suficiente, dilo claramente y ofrece alternativas
 - Si el cliente quiere comprar, pide su nombre y dirección de envío
 - No inventes productos que no están en el catálogo
-- Por el momento nuestro servicio es exclusivamente en la ciudad de Mérida, México y alrededores.
+- Advierte que nuestro servicio es exclusivamente en la ciudad de Mérida, México y alrededores.
 - No usar emojis
 - No uses formato Markdown, asteriscos, ni negritas. Solo texto plano.
 - Sé breve: máximo 3-4 oraciones por respuesta
@@ -53,13 +53,13 @@ añadirlo a su pedido actual.
 Cuando termine, responde EXACTAMENTE en este formato 
 y nada más:
 
-COMPRA:nombre_del_producto|nombre_cliente|dirección_completa
+COMPRA:nombre_del_producto|cantidad|nombre_cliente|dirección_completa
 
 Ejemplo:
-COMPRA:Gasas5x5cm|Juan García|Calle Montejo, Mérida
+COMPRA:Gasas5x5cm|5|Juan García|Calle Montejo, Mérida
 
 - No agregues texto adicional cuando uses ese formato
-- Solo usa ese formato cuando tengas los tres datos confirmados
+- Solo usa ese formato cuando tengas los cuatro datos confirmados
 
 """
 
@@ -70,7 +70,7 @@ class Mensaje(BaseModel):
 # ENDPOINTS 
 @app.get("/")
 def inicio():
-    return {"status": "Bionicle Saga MX funcionando"}
+    return {"status": "Medical Supplies MID funcionando"}
 
 @app.post("/chat")
 def chat(mensaje: Mensaje):
@@ -119,17 +119,17 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
         try:
             _, datos = texto_respuesta.split("COMPRA:")
             print(f"DEBUG - datos: '{datos}'")
-            nombre_producto, nombre_cliente, direccion = datos.split("|")
+            nombre_producto, cantidad, nombre_cliente, direccion = datos.split("|")
             print(f"DEBUG - producto: '{nombre_producto}', cliente: '{nombre_cliente}', direccion: '{direccion}'")
 
             # Verificar producto en base de datos
             print(f"DEBUG - buscando producto: '{nombre_producto.strip()}'")
-            producto = db.query(Producto).filter(
-                Producto.nombre.ilike(f"%{nombre_producto.strip()}%")
-            ).first()
+            producto = db.query(Producto).filter(Producto.nombre.ilike(f"%{nombre_producto.strip()}%")).first()
             print(f"DEBUG - producto encontrado: {producto}")
+            cant = db.query(Producto).filter(Producto.stock.ilike(f"%{cantidad.strip()}%")).first()
+            print(f"DEBUG - stock de {producto}: {cant}")
 
-            if producto and producto.stock > 0: # Crear pedido en PostgreSQL
+            if producto and producto.stock >= cant: # Crear pedido en PostgreSQL
                 print(f"DEBUG - stock ok, creando pedido...")
                 try:
                     pedido = Pedido(
@@ -152,6 +152,8 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
                 except Exception as e:
                     print(f"DEBUG - error interno: {e}")
                     texto_respuesta = "Hubo un problema al procesar tu pedido. Por favor intenta de nuevo."
+            else:
+                print(f"DEBUG - no hay suficiente stock de {producto}...")
         except Exception as e:
                     texto_respuesta = "Hubo un problema al procesar tu pedido. Por favor intenta de nuevo."
 
@@ -190,7 +192,7 @@ async def webhook_mercadopago(request: Request):
                 twilio_client.messages.create(
                     from_=os.environ.get("TWILIO_WA_NUMBER"),
                     to=pedido.numero,
-                    body=f"Tu pago fue confirmado. Pedido: {pedido.producto} por ${pedido.precio} MXN. Pronto nos pondremos en contacto para coordinar la entrega. Gracias {pedido.nombre_cliente}."
+                    body=f"Tu pago fue confirmado. Pedido: {pedido.producto} por ${pedido.precio} MXN. Su pedido llegará hoy antes de las 8 pm. Gracias {pedido.nombre_cliente}."
                 )
 
             db.close()
