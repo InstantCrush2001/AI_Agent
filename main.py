@@ -42,7 +42,7 @@ Reglas importantes:
 - Si un producto no tiene stock suficiente, dilo claramente y ofrece alternativas
 - Si el cliente quiere comprar, pide su nombre y dirección de envío
 - No inventes productos que no están en el catálogo
-- Advierte que nuestro servicio es exclusivamente en la ciudad de Mérida, México y alrededores.
+- Advierte que nuestro servicio es exclusivamente en la ciudad de Mérida y alrededores.
 - No usar emojis
 - No uses formato Markdown, asteriscos, ni negritas. Solo texto plano.
 - Sé breve: máximo 3-4 oraciones por respuesta
@@ -120,7 +120,7 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
             _, datos = texto_respuesta.split("COMPRA:")
             print(f"DEBUG - datos: '{datos}'")
             nombre_producto, cantidad, nombre_cliente, direccion = datos.split("|")
-            print(f"DEBUG - producto: '{nombre_producto}', cliente: '{nombre_cliente}', direccion: '{direccion}'")
+            print(f"DEBUG - producto: '{nombre_producto}', cantidad: '{cantidad}', cliente: '{nombre_cliente}', direccion: '{direccion}'")
 
             # Verificar producto en base de datos
             print(f"DEBUG - buscando producto: '{nombre_producto.strip()}'")
@@ -151,11 +151,13 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
 
                 except Exception as e:
                     print(f"DEBUG - error interno: {e}")
-                    texto_respuesta = "Hubo un problema al procesar tu pedido. Por favor intenta de nuevo."
+                    texto_respuesta = "Hubo un problema al procesar tu pedido. Por favor intenta de nuevo 1."
             else:
                 print(f"DEBUG - no hay suficiente stock de {producto}...")
+                texto_respuesta = f"No contamos con la cantidad de {producto} suficiente."
         except Exception as e:
-                    texto_respuesta = "Hubo un problema al procesar tu pedido. Por favor intenta de nuevo."
+                    print(f"DEBUG - error interno: {e}")
+                    texto_respuesta = "Hubo un problema al procesar tu pedido. Por favor intenta de nuevo 2."
 
     db.close()
     twiml = MessagingResponse()
