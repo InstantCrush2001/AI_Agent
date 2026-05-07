@@ -125,11 +125,9 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
             # Verificar producto en base de datos
             print(f"DEBUG - buscando producto: '{nombre_producto.strip()}'")
             producto = db.query(Producto).filter(Producto.nombre.ilike(f"%{nombre_producto.strip()}%")).first()
-            print(f"DEBUG - producto encontrado: {producto}")
-            cant = db.query(Producto).filter(Producto.stock.ilike(f"%{cantidad.strip()}%")).first()
-            print(f"DEBUG - stock de {producto}: {cant}")
+            print(f"DEBUG - stock de: {producto.nombre}: {producto.stock}")
 
-            if producto and producto.stock >= cant: # Crear pedido en PostgreSQL
+            if producto and producto.stock >= cantidad: # Crear pedido en PostgreSQL
                 print(f"DEBUG - stock ok, creando pedido...")
                 try:
                     pedido = Pedido(
@@ -153,8 +151,8 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
                     print(f"DEBUG - error interno: {e}")
                     texto_respuesta = "Hubo un problema al procesar tu pedido. Por favor intenta de nuevo 1."
             else:
-                print(f"DEBUG - no hay suficiente stock de {producto}...")
-                texto_respuesta = f"No contamos con la cantidad de {producto} suficiente."
+                print(f"DEBUG - no hay suficiente stock de {producto.nombre}...")
+                texto_respuesta = f"No contamos con la cantidad de {producto.nombre} suficiente."
         except Exception as e:
                     print(f"DEBUG - error interno: {e}")
                     texto_respuesta = "Hubo un problema al procesar tu pedido. Por favor intenta de nuevo 2."
