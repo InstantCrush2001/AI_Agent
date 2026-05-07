@@ -40,13 +40,14 @@ class Producto(Base):
     __tablename__ = "productos"
 
     id = Column(Integer, primary_key=True)
+    clave_prod = Column(String(50))
     nombre = Column(String(100))
-    set = Column(Integer)
-    año = Column(Integer)
+    uso = Column(String(50))
+    marca = Column(String(50))
+    stock = Column(Integer)
     tipo = Column(String(50))
     precio = Column(Integer)
-    Pz_actuales = Column(Integer)
-    Pz_totales = Column(Integer)
+    proveedor = Column(String(50))
 
 # Crea las tablas en PostgreSQL si no existen
 def crear_tablas():

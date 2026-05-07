@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from anthropic import Anthropic
 from dotenv import load_dotenv
 from twilio.twiml.messaging_response import MessagingResponse
+from twilio.rest import Client as TwilioClient
 from database import SessionLocal, Historial, Producto, Pedido, crear_tablas
 import mercadopago
 import os
@@ -21,15 +22,15 @@ def construir_system_prompt():
     db.close()
     
     productos_texto = "\n".join(
-        f"- {p.nombre} | ${p.precio} MXN | Año: {p.año} | Piezas: {p.Pz_actuales}/{p.Pz_totales}"
+        f"- {p.nombre} | ${p.precio} MXN| Piezas: "
         for p in productos
     )
-    return f"""Eres el asistente virtual de Bionicle Saga MX, una tienda que conecta
-a compradores con vendedores de Bionicle.
+    return f"""Eres el asistente virtual de MEDICAL SUPPLIES MID, una tienda en línea
+de suministros médicos.
 
 Tu trabajo es:
 1. Ayudar a los clientes a encontrar productos del catálogo
-2. Responder preguntas sobre precio, estética, año de lanzamiento y nombre de su colección
+2. Responder preguntas sobre precio, cantidad y especificaciones
 3. Indicar precios y disponibilidad
 4. Guiar al cliente hacia hacer un pedido
 
@@ -41,30 +42,32 @@ Reglas importantes:
 - Si un producto no tiene stock, dilo claramente y ofrece alternativas
 - Si el cliente quiere comprar, pide su nombre y dirección de envío
 - No inventes productos que no están en el catálogo
+- Por el momento nuestro servicio es exclusivamente en la ciudad de Mérida, México y alrededores.
 - No usar emojis
 - No uses formato Markdown, asteriscos, ni negritas. Solo texto plano.
 - Sé breve: máximo 3-4 oraciones por respuesta
 
 - Cuando el cliente confirme que quiere comprar un producto específico 
-y te haya dado su nombre y dirección, responde EXACTAMENTE en este formato 
+y te haya dado su nombre y dirección, pregunta si se le ofrece algo más para
+añadirlo a su pedido actual. 
+Cuando termine, responde EXACTAMENTE en este formato 
 y nada más:
 
 COMPRA:nombre_del_producto|nombre_cliente|dirección_completa
 
 Ejemplo:
-COMPRA:Brutaka|Juan García|Calle Reforma 123, CDMX
+COMPRA:Gasas5x5cm|Juan García|Calle Montejo, Mérida
 
 - No agregues texto adicional cuando uses ese formato
 - Solo usa ese formato cuando tengas los tres datos confirmados
 
 """
 
-# ── MODELO DE DATOS ────────────────────────────────────────────────────
 # Le dice a FastAPI qué forma tiene el JSON que va a recibir
 class Mensaje(BaseModel):
     texto: str
 
-# ── ENDPOINTS ──────────────────────────────────────────────────────────
+# ENDPOINTS 
 @app.get("/")
 def inicio():
     return {"status": "Bionicle Saga MX funcionando"}
@@ -126,7 +129,7 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
             ).first()
             print(f"DEBUG - producto encontrado: {producto}")
 
-            if producto: #and producto.stock > 0: # Crear pedido en PostgreSQL
+            if producto and producto.stock > 0: # Crear pedido en PostgreSQL
                 print(f"DEBUG - stock ok, creando pedido...")
                 try:
                     pedido = Pedido(
@@ -150,8 +153,7 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
                     print(f"DEBUG - error interno: {e}")
                     texto_respuesta = "Hubo un problema al procesar tu pedido. Por favor intenta de nuevo."
         except Exception as e:
-                    print(f"DEBUG - error interno: {e}")
-                    # texto_respuesta = "Hubo un problema al procesar tu pedido. Por favor intenta de nuevo."
+                    texto_respuesta = "Hubo un problema al procesar tu pedido. Por favor intenta de nuevo."
 
     db.close()
     twiml = MessagingResponse()
@@ -162,8 +164,7 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
 async def webhook_mercadopago(request: Request):
     data = await request.json()
     
-    # MercadoPago manda diferentes tipos de notificaciones
-    # solo nos interesan las de pagos aprobados
+    # MercadoPago manda diferentes tipos de notificaciones, solo nos interesan las de pagos aprobados
     if data.get("type") == "payment":
         payment_id = data["data"]["id"]
         
@@ -175,12 +176,22 @@ async def webhook_mercadopago(request: Request):
         if payment_info["status"] == "approved":
             pedido_id = payment_info["external_reference"]
             
-            # Actualizamos el pedido en la base de datos
-            db = SessionLocal()
+            db = SessionLocal() # Actualizamos el pedido en la base de datos
             pedido = db.query(Pedido).filter_by(id=int(pedido_id)).first()
             if pedido:
                 pedido.estado = "pagado"
                 db.commit()
+                
+                twilio_client = TwilioClient( # Manda mensaje de confirmación por WhatsApp
+                    os.environ.get("TWILIO_ACCOUNT_SID"),
+                    os.environ.get("TWILIO_AUTH_TOKEN")
+                )
+
+                twilio_client.messages.create(
+                    from_=os.environ.get("TWILIO_WA_NUMBER"),
+                    to=pedido.numero,
+                    body=f"Tu pago fue confirmado. Pedido: {pedido.producto} por ${pedido.precio} MXN. Pronto nos pondremos en contacto para coordinar la entrega. Gracias {pedido.nombre_cliente}."
+                )
+
             db.close()
-    
     return {"status": "ok"}

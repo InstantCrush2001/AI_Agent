@@ -42,12 +42,9 @@ Reglas importantes:
 - No usar emojis
 - Sé breve: máximo 3-4 oraciones por respuesta"""
 
-# ── CLIENTE DE ANTHROPIC ──────────────────────────────────────────────
 cliente = Anthropic()  # lee ANTHROPIC_API_KEY del .env automáticamente
 
-# ── HISTORIAL DE CONVERSACIÓN ─────────────────────────────────────────
-# Claude no recuerda conversaciones anteriores por sí solo.
-# Tú le mandas todo el historial en cada llamada.
+# Claude no recuerda conversaciones anteriores por sí solo. Tú le mandas todo el historial en cada llamada.
 historial = []
 
 def chat(mensaje_usuario: str) -> str:
@@ -69,17 +66,3 @@ def chat(mensaje_usuario: str) -> str:
     historial.append({"role": "assistant", "content": texto_respuesta})
 
     return texto_respuesta
-
-# ── LOOP PRINCIPAL ────────────────────────────────────────────────────
-# Esto simula el chat en tu terminal. Más adelante este loop
-# lo reemplazas por un endpoint de FastAPI que recibe mensajes de WhatsApp.
-if __name__ == "__main__":
-    print("🤖 Chatbot de Bionicle Saga MX — escribe 'salir' para terminar\n")
-    while True:
-        entrada = input("Tú: ").strip()
-        if entrada.lower() == "salir":
-            break
-        if not entrada:
-            continue
-        respuesta = chat(entrada)
-        print(f"\n Bionicle Saga MX: {respuesta}\n")
