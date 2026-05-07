@@ -4,7 +4,7 @@ from anthropic import Anthropic
 from dotenv import load_dotenv
 from twilio.twiml.messaging_response import MessagingResponse
 from twilio.rest import Client as TwilioClient
-from database import SessionLocal, Historial, Producto, Pedido, crear_tablas
+from database import SessionLocal, Historial, Producto, Pedido, DetallePedido, crear_tablas
 import mercadopago
 import os
 from pagos import crear_link_pago
@@ -51,13 +51,13 @@ Reglas importantes:
 y te haya dado su nombre y dirección, responde EXACTAMENTE en este formato 
 y nada más:
 
-COMPRA:nombre_del_producto|cantidad|nombre_cliente|dirección_completa
+COMPRA:nombre_cliente|dirección_completa|producto1:cantidad1,producto2:cantidad2,productoN:cantidadN
 
 Ejemplo:
-COMPRA:Gasas5x5cm|5|Juan García|Calle Montejo, Mérida
+COMPRA:Juan García|Calle Montejo, Mérida|Gasas 5x5cm:5,Bolsa Grado Médico 20x10:3,...
 
-- No agregues texto adicional cuando uses ese formato
-- Solo usa ese formato cuando tengas los cuatro datos confirmados
+- Solo usa ese formato cuando tengas nombre, dirección y al menos un producto confirmado
+- No uses valores None o vacíos
 
 """
 
@@ -117,45 +117,74 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
         try:
             _, datos = texto_respuesta.split("COMPRA:")
             print(f"DEBUG - datos: '{datos}'")
-            nombre_producto, cantidad_producto, nombre_cliente, direccion = datos.split("|")
-            print(f"DEBUG - producto: '{nombre_producto}', cantidad: '{cantidad_producto}', cliente: '{nombre_cliente}', direccion: '{direccion}'")
+            partes = datos.split("|")
+            nombre_cliente = partes[0].strip()
+            direccion = partes[1].strip()
+            productos_raw = partes[2].strip()
+            print(f"DEBUG - cliente: '{nombre_cliente}', direccion: '{direccion}' productos: {productos_raw}")
 
-            # Verificar producto en base de datos
-            print(f"DEBUG - buscando producto: '{nombre_producto.strip()}'")
-            producto = db.query(Producto).filter(Producto.nombre.ilike(f"%{nombre_producto.strip()}%")).first()
-            cantidad = int(cantidad_producto.strip())
-            print(f"DEBUG - stock de: {producto.nombre}: {producto.stock}")
+            # Crear el pedido principal
+            pedido = Pedido(
+                numero=numero,
+                nombre_cliente=nombre_cliente,
+                direccion=direccion,
+                estado="pendiente"
+            )
+            db.add(pedido)
+            db.flush() 
 
-            if producto and producto.stock >= cantidad: # Crear pedido en PostgreSQL
-                print(f"DEBUG - stock ok, creando pedido...")
-                try:
-                    pedido = Pedido(
-                        numero=numero,
-                        producto=producto.nombre,
-                        cantidad=cantidad,
-                        precio=producto.precio * cantidad,
-                        nombre_cliente=nombre_cliente.strip(),
-                        direccion=direccion.strip(),
-                        estado="pendiente"
-                    )
-                    db.add(pedido)
-                    db.commit()
-                    print(f"DEBUG - pedido creado id: {pedido.id}")
+            total = 0
+            detalles_texto = []
+            items_mp = []  # para MercadoPago
 
-                    link = crear_link_pago(producto.nombre, pedido.cantidad, producto.precio, pedido.id) # Generar link de pago
-                    print(f"DEBUG - link generado: {link}")
+            # Procesar cada producto
+            for item in productos_raw.split(","):
+                nombre_prod, cantidad_str = item.strip().split(":")
+                cantidad = int(cantidad_str.strip())
 
-                    texto_respuesta = f"Perfecto {nombre_cliente.strip()}, aquí está tu link de pago por ${producto.precio} MXN: {link}"
+                producto = db.query(Producto).filter(
+                    Producto.nombre.ilike(f"%{nombre_prod.strip()}%")
+                ).first()
 
-                except Exception as e:
-                    print(f"DEBUG - error interno: {e}")
-                    texto_respuesta = "Hubo un problema al procesar tu pedido. Por favor intenta de nuevo 1."
-            else:
-                print(f"DEBUG - no hay suficiente stock de {producto.nombre}...")
-                texto_respuesta = f"No contamos con la cantidad de {producto.nombre} suficiente."
+                if producto and producto.stock >= cantidad: 
+                    print(f"DEBUG - stock ok, añadiendo a pedido...")
+                    detalle = DetallePedido(
+                            pedido_id=pedido.id,
+                            producto=producto.nombre,
+                            cantidad=cantidad,
+                            precio_unitario=producto.precio
+                        )
+                    db.add(detalle)
+                
+                    subtotal = producto.precio * cantidad
+                    total += subtotal
+                    detalles_texto.append(f"{cantidad}x {producto.nombre} ${subtotal} MXN")
+
+                    items_mp.append({
+                        "title": producto.nombre,
+                        "quantity": cantidad,
+                        "unit_price": producto.precio,
+                        "currency_id": "MXN"
+                    })
+            
+                    producto.stock -= cantidad # Actualizar stock
+
+                else:
+                    print(f"DEBUG - no hay suficiente stock de {producto.nombre}...")
+                    texto_respuesta = f"No contamos con la cantidad de {producto.nombre} suficiente."
+
+            db.commit()
+            # print(f"DEBUG - pedido creado id: {pedido.id}")
+
+            link = crear_link_pago(items_mp, total, pedido.id) # Generar link de pago
+            print(f"DEBUG - link generado: {link}")
+
+            resumen = "\n".join(detalles_texto)
+            texto_respuesta = f"Pedido confirmado {nombre_cliente}:\n{resumen}\nTotal: ${total} MXN\nLink de pago: {link}"
+
         except Exception as e:
-                    print(f"DEBUG - error interno: {e}")
-                    texto_respuesta = "Hubo un problema al procesar tu pedido. Por favor intenta de nuevo 2."
+            print(f"DEBUG - error interno: {e}")
+            texto_respuesta = "Hubo un problema al procesar tu pedido. Por favor intenta de nuevo 2."
 
     db.close()
     twiml = MessagingResponse()

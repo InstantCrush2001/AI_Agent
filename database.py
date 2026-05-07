@@ -1,7 +1,7 @@
 import os
-from sqlalchemy import create_engine, Column, String, Text, DateTime, Integer
+from sqlalchemy import create_engine, Column, String, Text, DateTime, Integer, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, relationship
 from datetime import datetime
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
@@ -29,13 +29,26 @@ class Pedido(Base):
 
     id = Column(Integer, primary_key=True)
     numero = Column(String(50))   # número de WhatsApp
-    producto = Column(String(100))
-    cantidad = Column(Integer)
-    precio = Column(Integer)
+    # producto = Column(String(100))
+    # cantidad = Column(Integer)
+    # precio = Column(Integer)
     nombre_cliente = Column(String(100))
     direccion = Column(Text)
     fecha = Column(DateTime, default=datetime.utcnow)
     estado = Column(String(20), default="pendiente")
+
+    detalles = relationship("DetallePedido", back_populates="pedido")
+
+class DetallePedido(Base):
+    __tablename__ = "detalles_pedido"
+
+    id = Column(Integer, primary_key=True)
+    pedido_id = Column(Integer, ForeignKey("pedidos.id"))
+    producto = Column(String(100))
+    cantidad = Column(Integer)
+    precio_unitario = Column(Integer)
+
+    pedido = relationship("Pedido", back_populates="detalles")
 
 class Producto(Base):
     __tablename__ = "productos"

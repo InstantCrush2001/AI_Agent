@@ -3,16 +3,12 @@ import mercadopago
 
 sdk = mercadopago.SDK(os.environ.get("MP_ACCESS_TOKEN"))
 
-def crear_link_pago(producto_nombre: str, cantidad: str, precio: int, pedido_id: int) -> str:
+def crear_link_pago(items: list, producto_nombre: str, total: str, pedido_id: int) -> str:
     preference_data = {
-        "items": [{
-                "title": producto_nombre,
-                "quantity": cantidad,
-                "unit_price": precio,
-                "currency_id": "MXN",
-            }],
+        "items": items,
         "notification_url": f"{os.environ.get('BASE_URL')}/webhook/mercadopago", # MercadoPago notificará a esta URL cuando el pago sea exitoso
         "external_reference": str(pedido_id), # ID de tu pedido para identificarlo cuando llegue la notificación
+        "auto_return": "approved",
         "back_urls": {
             "success": "https://chatbot-production-17d4.up.railway.app",
             "failure": "https://chatbot-production-17d4.up.railway.app",
