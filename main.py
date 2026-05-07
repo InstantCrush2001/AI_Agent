@@ -22,7 +22,7 @@ def construir_system_prompt():
     db.close()
     
     productos_texto = "\n".join(
-        f"- {p.nombre} | clave del producto: {p.clave_prod}| ${p.precio} MXN | {p.stock} piezas | marca: {p.marca}"
+        f"- {p.nombre} | clave del producto: {p.clave_prod}| ${p.precio} MXN | marca: {p.marca}"
         for p in productos
     )
     return f"""Eres el asistente virtual de MEDICAL SUPPLIES MID, una tienda en línea
