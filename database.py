@@ -30,6 +30,7 @@ class Pedido(Base):
     id = Column(Integer, primary_key=True)
     numero = Column(String(50))   # número de WhatsApp
     producto = Column(String(100))
+    cantidad = Column(Integer)
     precio = Column(Integer)
     nombre_cliente = Column(String(100))
     direccion = Column(Text)

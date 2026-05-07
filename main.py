@@ -117,21 +117,23 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
         try:
             _, datos = texto_respuesta.split("COMPRA:")
             print(f"DEBUG - datos: '{datos}'")
-            nombre_producto, cantidad, nombre_cliente, direccion = datos.split("|")
-            print(f"DEBUG - producto: '{nombre_producto}', cantidad: '{cantidad}', cliente: '{nombre_cliente}', direccion: '{direccion}'")
+            nombre_producto, cantidad_producto, nombre_cliente, direccion = datos.split("|")
+            print(f"DEBUG - producto: '{nombre_producto}', cantidad: '{cantidad_producto}', cliente: '{nombre_cliente}', direccion: '{direccion}'")
 
             # Verificar producto en base de datos
             print(f"DEBUG - buscando producto: '{nombre_producto.strip()}'")
             producto = db.query(Producto).filter(Producto.nombre.ilike(f"%{nombre_producto.strip()}%")).first()
+            cantidad = int(cantidad.strip())
             print(f"DEBUG - stock de: {producto.nombre}: {producto.stock}")
 
-            if producto and producto.stock >= int(cantidad.strip()): # Crear pedido en PostgreSQL
+            if producto and producto.stock >= cantidad: # Crear pedido en PostgreSQL
                 print(f"DEBUG - stock ok, creando pedido...")
                 try:
                     pedido = Pedido(
                         numero=numero,
                         producto=producto.nombre,
-                        precio=producto.precio,
+                        cantidad=cantidad,
+                        precio=producto.precio * cantidad,
                         nombre_cliente=nombre_cliente.strip(),
                         direccion=direccion.strip(),
                         estado="pendiente"
@@ -140,7 +142,7 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
                     db.commit()
                     print(f"DEBUG - pedido creado id: {pedido.id}")
 
-                    link = crear_link_pago(producto.nombre, producto.precio, pedido.id) # Generar link de pago
+                    link = crear_link_pago(producto.nombre, pedido.cantidad, producto.precio, pedido.id) # Generar link de pago
                     print(f"DEBUG - link generado: {link}")
 
                     texto_respuesta = f"Perfecto {nombre_cliente.strip()}, aquí está tu link de pago por ${producto.precio} MXN: {link}"
