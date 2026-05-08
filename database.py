@@ -1,5 +1,5 @@
 import os
-from sqlalchemy import create_engine, Column, String, Text, DateTime, Integer, ForeignKey
+from sqlalchemy import create_engine, Column, String, Float, Numeric, Text, DateTime, Integer, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from datetime import datetime
@@ -46,7 +46,7 @@ class DetallePedido(Base):
     pedido_id = Column(Integer, ForeignKey("pedidos.id"))
     producto = Column(String(100))
     cantidad = Column(Integer)
-    precio_unitario = Column(Integer)
+    precio_unitario = Column(Numeric(precision=10, scale=2))
 
     pedido = relationship("Pedido", back_populates="detalles")
 
@@ -60,7 +60,7 @@ class Producto(Base):
     marca = Column(String(50))
     stock = Column(Integer)
     tipo = Column(String(50))
-    precio = Column(Integer)
+    precio = Column(Numeric(precision=10, scale=2))
     proveedor = Column(String(50))
 
 # Crea las tablas en PostgreSQL si no existen

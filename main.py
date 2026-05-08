@@ -22,7 +22,7 @@ def construir_system_prompt():
     db.close()
     
     productos_texto = "\n".join(
-        f"- {p.nombre} | clave del producto: {p.clave_prod}| ${p.precio} MXN | marca: {p.marca}"
+        f"- {p.nombre} | clave del producto: {p.clave_prod}| ${p.precio} MXN, marca {p.marca}"
         for p in productos
     )
     return f"""Eres el asistente virtual de MEDICAL SUPPLIES MID, una tienda en línea
@@ -40,6 +40,7 @@ CATÁLOGO ACTUAL:
 Reglas importantes:
 - Responde siempre en español, de forma amable y cálida
 - Si un producto no tiene stock suficiente, dilo claramente y ofrece alternativas
+- Siempre que menciones un producto, no menciones su clave_prod a menos que elc cliente la pida
 - Si el cliente quiere comprar, pide su nombre y dirección de envío
 - No inventes productos que no están en el catálogo
 - Advierte que nuestro servicio es exclusivamente en la ciudad de Mérida y alrededores.
@@ -143,12 +144,11 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
                 cantidad = int(cantidad_str.strip())
 
                 producto = db.query(Producto).filter(
-                    # Producto.nombre.ilike(f"%{clave_prod.strip()}%")
                     Producto.clave_prod == claveProd.strip().upper()
                 ).first()
 
                 if producto and producto.stock >= cantidad: 
-                    print(f"DEBUG - stock ok, añadiendo a pedido...")
+                    print(f"DEBUG - stock ok, añadiendo {producto.nombre} a pedido...")
                     detalle = DetallePedido(
                             pedido_id=pedido.id,
                             producto=producto.nombre,
@@ -168,14 +168,14 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
                         "currency_id": "MXN"
                     })
             
-                    producto.stock -= cantidad # Actualizar stock
+                    # producto.stock -= cantidad # Actualizar stock
 
                 else:
                     print(f"DEBUG - no hay suficiente stock de {producto.nombre}...")
                     texto_respuesta = f"No contamos con la cantidad de {producto.nombre} suficiente."
 
             db.commit()
-            # print(f"DEBUG - pedido creado id: {pedido.id}")
+            print(f"DEBUG - pedido creado id: {pedido.id}")
 
             link = crear_link_pago(items_mp, pedido.id) # Generar link de pago
             print(f"DEBUG - link generado: {link}")
@@ -212,6 +212,7 @@ async def webhook_mercadopago(request: Request):
             pedido = db.query(Pedido).filter_by(id=int(pedido_id)).first()
             if pedido:
                 pedido.estado = "pagado"
+                # producto.stock -= cantidad # Actualizar stock
                 db.commit()
                 
                 twilio_client = TwilioClient( # Manda mensaje de confirmación por WhatsApp
