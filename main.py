@@ -176,7 +176,7 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
             db.commit()
             # print(f"DEBUG - pedido creado id: {pedido.id}")
 
-            link = crear_link_pago(items_mp, total, pedido.id) # Generar link de pago
+            link = crear_link_pago(items_mp, pedido.id) # Generar link de pago
             print(f"DEBUG - link generado: {link}")
 
             resumen = "\n".join(detalles_texto)
@@ -184,7 +184,7 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
 
         except Exception as e:
             print(f"DEBUG - error interno: {e}")
-            texto_respuesta = "Hubo un problema al procesar tu pedido. Por favor intenta de nuevo 2."
+            texto_respuesta = "Hubo un problema al procesar tu pedido. Por favor intenta de nuevo."
 
     db.close()
     twiml = MessagingResponse()
