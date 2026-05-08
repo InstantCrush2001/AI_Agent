@@ -51,10 +51,18 @@ Reglas importantes:
 y te haya dado su nombre y dirección, responde EXACTAMENTE en este formato 
 y nada más:
 
-COMPRA:nombre_cliente|dirección_completa|producto1:cantidad1,producto2:cantidad2,productoN:cantidadN
+producto1: Gasas 5x5cm
+clave_prod1: HB112
+cantidad1: 5
+
+producto2: Bolsa Grado Médico 20x10
+clave_prod2: PAR022
+cantidad2: 3
+
+COMPRA:nombre_cliente|dirección_completa|clave_prod1:cantidad1,clave_prod2:cantidad2,clave_prodN:cantidadN
 
 Ejemplo:
-COMPRA:Juan García|Calle Montejo, Mérida|Gasas 5x5cm:5,Bolsa Grado Médico 20x10:3,...
+COMPRA:Juan García|Calle Montejo, Mérida|HB112:5,PAR022:3,...
 
 - Solo usa ese formato cuando tengas nombre, dirección y al menos un producto confirmado
 - No uses valores None o vacíos
@@ -120,8 +128,8 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
             partes = datos.split("|")
             nombre_cliente = partes[0].strip()
             direccion = partes[1].strip()
-            productos_raw = partes[2].strip()
-            print(f"DEBUG - cliente: '{nombre_cliente}', direccion: '{direccion}' productos: {productos_raw}")
+            claves_raw = partes[2].strip()
+            print(f"DEBUG - cliente: '{nombre_cliente}', direccion: '{direccion}' productos: {claves_raw}")
 
             # Crear el pedido principal
             pedido = Pedido(
@@ -138,12 +146,13 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
             items_mp = []  # para MercadoPago
 
             # Procesar cada producto
-            for item in productos_raw.split(","):
-                nombre_prod, cantidad_str = item.strip().split(":")
+            for item in claves_raw.split(","):
+                claveProd, cantidad_str = item.strip().split(":")
                 cantidad = int(cantidad_str.strip())
 
                 producto = db.query(Producto).filter(
-                    Producto.nombre.ilike(f"%{nombre_prod.strip()}%")
+                    # Producto.nombre.ilike(f"%{clave_prod.strip()}%")
+                    Producto.clave_prod == claveProd.strip().upper()
                 ).first()
 
                 if producto and producto.stock >= cantidad: 
