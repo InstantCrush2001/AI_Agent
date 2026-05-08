@@ -1,0 +1,109 @@
+DEBUG MP - resultado completo: {
+
+'status': 201,
+'response': 
+	{
+	'additional_info': '', 
+	'auto_return': 'approved', 
+	'back_urls': {'failure': 'https://chatbot-production-17d4.up.railway.app', 
+	'pending': 'https://chatbot-production-17d4.up.railway.app', 
+	'success': 'https://chatbot-production-17d4.up.railway.app'
+	}, 
+'binary_mode': False, 
+'client_id': '1631342089852109', 
+'collector_id': 3383088626, 
+'coupon_code': None, 
+'coupon_labels': None, 
+'date_created': '2026-05-08T14:02:08.795-04:00', 
+'date_of_expiration': None, 
+'expiration_date_from': None,
+'expiration_date_to': None,
+'expires': False, 
+'external_reference': '3',
+'id': '3383088626-075cf131-5eed-42fa-8c4b-4a74dc4026f0',
+'init_point': 'https://www.mercadopago.com.mx/checkout/v1/redirect?pref_id=3383088626-075cf131-5eed-42fa-8c4b-4a74dc4026f0', 
+'internal_metadata': None, 
+'items': [
+	{
+	'id': '', 
+	'category_id': '', 
+	'currency_id': 'MXN', 
+	'description': '', 
+	'title': 'bolsa de papel grado médico 12x26 cm',
+	'quantity': 3, 
+	'unit_price': 1
+	}, 
+	{
+	'id': '',
+	'category_id': '',
+	'currency_id': 'MXN',
+	'description': '',
+	'title': 'agente esterilizante vaprox',
+	'quantity': 1,
+	'unit_price': 1
+	}
+	],
+'marketplace': 'NONE',
+'marketplace_fee': 0,
+'metadata': {},
+'notification_url': 'https://chatbot-production-17d4.up.railway.app/webhook/mercadopago',
+'operation_type': 'regular_payment',
+'payer': 
+	{
+	'phone': 
+		{
+		'area_code': '', 
+		'number': ''
+		}, 
+	'address': 
+		{
+		'zip_code': '',
+		'street_name': '',
+		'street_number': None
+		}, 
+	'email': '', 
+	'identification':
+		{
+		'number': '', 
+		'type': ''
+		},
+	'name': '',
+	'surname': '',
+	'date_created': None,
+	'last_purchase': None
+	}, 
+'payment_methods': 
+	{
+	'default_card_id': None, 
+	'default_payment_method_id': None, 
+	'excluded_payment_methods': [{'id': ''}], 
+	'excluded_payment_types': [{'id': ''}], 
+	'installments': None,
+	'default_installments': None},
+	'processing_modes': None, 
+	'product_id': None, 
+	'preference_expired': False,
+	'redirect_urls': {'failure': '', 'pending': '', 'success': ''},
+	'sandbox_init_point': 'https://sandbox.mercadopago.com.mx/checkout/v1/redirect?pref_id=3383088626-075cf131-5eed-42fa-8c4b-4a74dc4026f0', 
+	'site_id': 'MLM', 
+	'shipments': 
+		{
+		'default_shipping_method': None, 
+		'receiver_address': 
+				{
+				'zip_code': '', 
+				'street_name': '', 
+				'street_number': None, 
+				'floor': '', 'apartment': '', 
+				'city_name': None, 
+				'state_name': None,
+				'country_name': None,
+				'neighborhood': None
+				}
+		}, 
+	'total_amount': None,
+	'last_updated': None,
+	'financing_group': ''
+	}
+
+}

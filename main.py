@@ -148,7 +148,7 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
                 ).first()
 
                 if producto and producto.stock >= cantidad: 
-                    print(f"DEBUG - stock ok, añadiendo {producto.nombre} a pedido...")
+                    print(f"DEBUG - stock ok, añadiendo {cantidad} {producto.nombre} a pedido...")
                     detalle = DetallePedido(
                             pedido_id=pedido.id,
                             producto=producto.nombre,
@@ -168,8 +168,6 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
                         "unit_price": precio,
                         "currency_id": "MXN"
                     })
-            
-                    # producto.stock -= cantidad # Actualizar stock
 
                 else:
                     print(f"DEBUG - no hay suficiente stock de {producto.nombre}...")
@@ -213,7 +211,13 @@ async def webhook_mercadopago(request: Request):
             pedido = db.query(Pedido).filter_by(id=int(pedido_id)).first()
             if pedido:
                 pedido.estado = "pagado"
-                # producto.stock -= cantidad # Actualizar stock
+
+                detalles = db.query(DetallePedido).filter(DetallePedido.pedido_id == pedido.id).all()
+                for detalle in detalles:
+                    prod = db.query(Producto).filter(Producto.nombre == detalle.producto).first()
+                    if prod:
+                        prod.stock -= detalle.cantidad
+
                 db.commit()
                 
                 twilio_client = TwilioClient( # Manda mensaje de confirmación por WhatsApp
