@@ -157,14 +157,15 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
                         )
                     db.add(detalle)
                 
-                    subtotal = producto.precio * cantidad
+                    precio = float(producto.precio)
+                    subtotal = precio * cantidad
                     total += subtotal
-                    detalles_texto.append(f"{cantidad}x {producto.nombre} ${subtotal} MXN")
+                    detalles_texto.append(f"{cantidad}x {producto.nombre} ${subtotal:.2f} MXN")
 
                     items_mp.append({
                         "title": producto.nombre,
                         "quantity": cantidad,
-                        "unit_price": producto.precio,
+                        "unit_price": precio,
                         "currency_id": "MXN"
                     })
             
@@ -181,7 +182,7 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
             print(f"DEBUG - link generado: {link}")
 
             resumen = "\n".join(detalles_texto)
-            texto_respuesta = f"Pedido confirmado {nombre_cliente}:\n{resumen}\nTotal: ${total} MXN\nLink de pago: {link}"
+            texto_respuesta = f"Pedido confirmado {nombre_cliente}:\n{resumen}\nTotal: ${total:.2f} MXN\nLink de pago: {link}"
 
         except Exception as e:
             print(f"DEBUG - error interno: {e}")
