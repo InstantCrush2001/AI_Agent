@@ -51,14 +51,6 @@ Reglas importantes:
 y te haya dado su nombre y dirección, responde EXACTAMENTE en este formato 
 y nada más:
 
-producto1: Gasas 5x5cm
-clave_prod1: HB112
-cantidad1: 5
-
-producto2: Bolsa Grado Médico 20x10
-clave_prod2: PAR022
-cantidad2: 3
-
 COMPRA:nombre_cliente|dirección_completa|clave_prod1:cantidad1,clave_prod2:cantidad2,clave_prodN:cantidadN
 
 Ejemplo:
