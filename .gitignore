@@ -3,3 +3,6 @@ venv/
 __pycache__/
 *.pyc
 inv.py
+chatbot.py
+main_prueba1.py
+main_medical.py

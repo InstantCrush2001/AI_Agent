@@ -224,11 +224,14 @@ async def webhook_mercadopago(request: Request):
                     os.environ.get("TWILIO_ACCOUNT_SID"),
                     os.environ.get("TWILIO_AUTH_TOKEN")
                 )
-
+                # Construir resumen de productos
+                detalles = db.query(DetallePedido).filter_by(pedido_id=pedido.id).all()
+                resumen = ", ".join([f"{d.cantidad}x {d.producto}" for d in detalles])
+                
                 twilio_client.messages.create(
                     from_=os.environ.get("TWILIO_WA_NUMBER"),
                     to=pedido.numero,
-                    body=f"Tu pago fue confirmado. Pedido: {pedido.producto} por ${pedido.precio} MXN. Su pedido llegará hoy antes de las 8 pm. Gracias {pedido.nombre_cliente}."
+                    body=f"Tu pago fue confirmado. Pedido: {resumen}. Su pedido llegará hoy antes de las 8 pm. Gracias {pedido.nombre_cliente}."
                 )
 
             db.close()
