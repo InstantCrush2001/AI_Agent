@@ -47,23 +47,25 @@ Tipo de servicios brindados:{servicios_texto}
 Reglas importantes:
 - Responde siempre en español, de forma amable y cálida
 - También aclara que nuestro equipo habla inglés o francés
-- No inventes servicios que no están en el catálogo.
+- No inventes servicios que no están enlistados.
 - Advierte que la tarifa de visita dentro de la ciudad de Mérida es de $475 MXN.
 - No usar emojis
 - No uses formato Markdown, asteriscos, ni negritas. Solo texto plano.
 - Sé breve: máximo 3-4 oraciones por respuesta
+- Extraer la descripción del servicio que desee el cliente. Ejemplo:
+    - necesito un sistema de riego
+    - "descripción": "jardinería"
 - Cuando el cliente confirme su intención de recibir la visita, preguntar los siguientes datos de contacto:
     - Nombre
     - Dirección de la visita
+- Y proponer el 1° horario disponible del día siguiente. 
+- Las visitas se agendan entre las 9am y 6pm de lunes a viernes y de 9pm a 2pm los sábados. Los domingos no laboramos.
 
-- Y proponer el 1° horario disponible del día siguiente
-- Las visitas se agendan entre las 9am y 6pm de lunes a viernes y de 9pm a 2pm los sábados. Los domingos no laboramos
-- Cuando recibas todos los datos de contacto, mandar link de pago para concretar la cita. Si no se paga, no se concreta la cita
+- Cuando tengas nombre, dirección del cliente, y fecha de visita pactada, responde EXACTAMENTE en este formato JSON y nada más:
 
-- Cuando tengas nombre y dirección del cliente, responde EXACTAMENTE en este formato JSON y nada más:
+CITA:{{"nombre": "Juan García", "direccion": "Calle 60 123, Mérida", "descripción": "jardinería", "fecha": "2026-05-20", "hora": "09:00"}}
 
-CITA:{{"nombre": "Juan García", "direccion": "Calle 60 123, Mérida"}}
-
+- Cuando recibas todos los datos de contacto y fecha de cita, mandar link de pago para confirmar la cita. 
 - No agregues texto antes ni después del formato CITA:
 - Solo usa ese formato cuando tengas ambos datos confirmados
 - No uses valores null o vacíos
@@ -121,7 +123,7 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
     db.add(Historial(numero=numero, role="assistant", contenido=texto_respuesta)) # Guarda la respuesta en la base de datos
     db.commit()
 
-    if texto_respuesta.startswith("CITA:"): # Detectar la intención de compra
+    if texto_respuesta.startswith("CITA:"): # Detectar la intención de cita
         print(f"DEBUG - texto_respuesta: '{texto_respuesta}'")
         try:
             _, json_raw = texto_respuesta.split("CITA:")
@@ -130,7 +132,10 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
 
             nombre_cliente = datos["nombre"].strip()
             direccion = datos["direccion"].strip()
-            print(f"DEBUG - cliente: {nombre_cliente}, direccion: {direccion}")
+            descripcion = datos["descripción"].strip()
+            fecha_cita = datos["fecha"].strip()
+            hora_cita = datos["hora"].strip()
+            print(f"DEBUG - cliente: {nombre_cliente}, direccion: {direccion}, desc: {descripcion}, a las {hora_cita} del {fecha_cita}")
 
             if not nombre_cliente or nombre_cliente.lower() == "none":
                 texto_respuesta = "Entendido, si necesitas algo más con gusto te ayudo."
@@ -140,9 +145,9 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
                     numero=numero,
                     nombre_cliente=nombre_cliente,
                     direccion=direccion,
-                    descripcion = None,
-                    fecha_visita = None,
-                    hora_visita = None,
+                    descripcion = descripcion,
+                    fecha_visita = fecha_cita,
+                    hora_visita = hora_cita,
                     estado="pendiente"
                 )
                 db.add(cita)
