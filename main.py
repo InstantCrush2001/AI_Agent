@@ -8,7 +8,7 @@ from database import SessionLocal, Historial, Visitas, crear_tablas
 import mercadopago
 import os
 from pagos import crear_link_pago
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 
 load_dotenv()
@@ -33,16 +33,34 @@ def construir_system_prompt():
     db.close()
     fecha_hoy = datetime.now().strftime("%d/%m/%Y")
     servicios_texto = SERVICIOS_TEXTO
+
+    # Obtener visitas del día siguiente
+    mañana = (datetime.now() + timedelta(days=1)).date()
+    visitas_mañana = db.query(Visitas).filter(
+        Visitas.fecha_visita == mañana,
+        Visitas.estado != "cancelada"
+    ).all()
+    db.close()
+
+    # Construir texto de horarios ocupados
+    horarios_ocupados = "\n".join(
+        f"- {v.hora_visita} — {v.direccion}"
+        for v in visitas_mañana
+    ) or "Ninguno"
+
     return f"""Eres el asistente virtual de OSORIO MANTENIMIENTO, un gestor de citas para realizar trabajos de mantenimiento.
 
 Hoy es {fecha_hoy}
+Tipo de servicios brindados:{servicios_texto}
+AGENDA DE MAÑANA ({mañana}):
+Horarios ocupados:
+{horarios_ocupados}
 
 Tu trabajo es:
 1. Atender al cliente y verificar si sus necesidades van de acuerdo a los servicios que ofrecemos
 2. Siempre es posible atenderles en persona siempre y cuando la cita esté pagada
 3. Agendar una cita para el cliente 
 
-Tipo de servicios brindados:{servicios_texto}
 
 Reglas importantes:
 - Responde siempre en español, de forma amable y cálida
@@ -60,6 +78,8 @@ Reglas importantes:
     - Dirección de la visita
 - Y proponer el 1° horario disponible del día siguiente. 
 - Las visitas se agendan entre las 9am y 6pm de lunes a viernes y de 9pm a 2pm los sábados. Los domingos no laboramos.
+- Proponer visita dos horas después del último horario ocupado del día. Si no hay visitas agendadas, proponer el 1° horario.
+- Verificar que el horario que propone el cliente tenga mínimo dos horas de separación de otras visitas agendadas.
 
 - Cuando tengas nombre, dirección del cliente, y fecha de visita pactada, responde EXACTAMENTE en este formato JSON y nada más:
 
