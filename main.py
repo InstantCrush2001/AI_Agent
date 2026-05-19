@@ -194,7 +194,9 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
         except Exception as e:
             print(f"DEBUG - error interno: {e}")
             texto_respuesta = "Hubo un problema al procesar tu pedido. Por favor intenta de nuevo."
-
+    else:
+        texto_respuesta = "Hubo un problema al procesar tu info."
+        print(f"DEBUG - mensaje no empieza con formato adecuado")
     db.close()
     twiml = MessagingResponse()
     twiml.message(texto_respuesta)
