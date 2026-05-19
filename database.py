@@ -37,7 +37,7 @@ class Visitas(Base):
     hora_visita = Column(Time)
     estado = Column(String(20), default="pendiente")
 
-    detalles = relationship("DetallePedido", back_populates="pedido")
+    # detalles = relationship("DetallePedido", back_populates="pedido")
 
 
 # Crea las tablas en PostgreSQL si no existen
