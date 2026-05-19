@@ -82,12 +82,15 @@ Reglas importantes:
 - Verificar que el horario que propone el cliente tenga mínimo dos horas de separación de otras visitas agendadas.
 - No dar detalles de la agenda del día. Sólo trabajar con el horario elegido.
 
-- Cuando tengas nombre, dirección del cliente, y fecha de visita pactada, responde EXACTAMENTE en este formato JSON y nada más:
+- Cuando tengas nombre, dirección, servicio, fecha y hora confirmados, 
+tu respuesta debe ser ÚNICAMENTE esto, sin ningún texto adicional antes ni después:
 
-CITA:{{"nombre": "Juan García", "direccion": "Calle 60 123", "descripción": "jardinería", "fecha": "2026-05-20", "hora": "09:00"}}
+CITA:{{"nombre": "Juan García", "direccion": "Calle 60 123", 
+"descripción": "jardinería", "fecha": "2026-05-20", "hora": "09:00"}}
 
-- No agregues texto antes ni después del formato CITA:
-- Solo usa ese formato cuando tengas todos los datos confirmados
+- NUNCA agregues texto antes o después del formato CITA:
+- NUNCA incluyas links ni explicaciones junto al formato CITA:
+- Si el formato CITA: está en tu respuesta, no debe haber nada más
 - No uses valores null o vacíos
 
 - Cuando recibas la confirmación de datos del cliente, mandar link de pago para confirmar la cita. 
@@ -144,7 +147,7 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
     db.add(Historial(numero=numero, role="assistant", contenido=texto_respuesta)) # Guarda la respuesta en la base de datos
     db.commit()
 
-    if texto_respuesta.startswith("CITA:"): # Detectar la intención de cita
+    if "CITA:" in texto_respuesta: # Detectar la intención de cita
         print(f"DEBUG 1 - texto_respuesta: '{texto_respuesta}'")
         try:
             _, json_raw = texto_respuesta.split("CITA:")
@@ -194,9 +197,7 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
         except Exception as e:
             print(f"DEBUG - error interno: {e}")
             texto_respuesta = "Hubo un problema al procesar tu pedido. Por favor intenta de nuevo."
-    else:
-        texto_respuesta = "Hubo un problema al procesar tu info."
-        print(f"DEBUG - mensaje no empieza con formato adecuado")
+
     db.close()
     twiml = MessagingResponse()
     twiml.message(texto_respuesta)
