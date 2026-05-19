@@ -86,11 +86,11 @@ Reglas importantes:
 
 CITA:{{"nombre": "Juan García", "direccion": "Calle 60 123", "descripción": "jardinería", "fecha": "2026-05-20", "hora": "09:00"}}
 
-- Cuando recibas todos los datos de contacto y fecha de cita, mandar link de pago para confirmar la cita. 
 - No agregues texto antes ni después del formato CITA:
 - Solo usa ese formato cuando tengas todos los datos confirmados
 - No uses valores null o vacíos
 
+- Cuando recibas la confirmación de datos del cliente, mandar link de pago para confirmar la cita. 
 """
 
 # Le dice a FastAPI qué forma tiene el JSON que va a recibir
