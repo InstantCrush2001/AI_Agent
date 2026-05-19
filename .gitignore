@@ -2,7 +2,8 @@ venv/
 .env
 __pycache__/
 *.pyc
-inv.py
+inv_medical.py
 chatbot.py
 main_prueba1.py
 main_medical.py
+db_medical.py

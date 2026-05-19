@@ -1,5 +1,5 @@
 import os
-from sqlalchemy import create_engine, Column, String, Float, Numeric, Text, DateTime, Integer, ForeignKey
+from sqlalchemy import create_engine, Column, String, Float, Text, DateTime, Time, Integer, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from datetime import datetime
@@ -24,44 +24,21 @@ class Historial(Base):
     contenido = Column(Text)      # el texto del mensaje
     fecha = Column(DateTime, default=datetime.utcnow)
 
-class Pedido(Base):
-    __tablename__ = "pedidos"
+class Visitas(Base):
+    __tablename__ = "visitas"
 
     id = Column(Integer, primary_key=True)
     numero = Column(String(50))   # número de WhatsApp
-    # producto = Column(String(100))
-    # cantidad = Column(Integer)
-    # precio = Column(Integer)
     nombre_cliente = Column(String(100))
     direccion = Column(Text)
+    descripcion = Column(String(100))
     fecha = Column(DateTime, default=datetime.utcnow)
+    fecha_visita = Column(DateTime, default=datetime.utcnow)
+    hora_visita = Column(Time)
     estado = Column(String(20), default="pendiente")
 
     detalles = relationship("DetallePedido", back_populates="pedido")
 
-class DetallePedido(Base):
-    __tablename__ = "detalles_pedido"
-
-    id = Column(Integer, primary_key=True)
-    pedido_id = Column(Integer, ForeignKey("pedidos.id"))
-    producto = Column(String(100))
-    cantidad = Column(Integer)
-    precio_unitario = Column(Numeric(precision=10, scale=2))
-
-    pedido = relationship("Pedido", back_populates="detalles")
-
-class Producto(Base):
-    __tablename__ = "productos"
-
-    id = Column(Integer, primary_key=True)
-    clave_prod = Column(String(50))
-    nombre = Column(String(100))
-    uso = Column(String(50))
-    marca = Column(String(50))
-    stock = Column(Integer)
-    tipo = Column(String(50))
-    precio = Column(Numeric(precision=10, scale=2))
-    proveedor = Column(String(50))
 
 # Crea las tablas en PostgreSQL si no existen
 def crear_tablas():

@@ -4,10 +4,12 @@ from anthropic import Anthropic
 from dotenv import load_dotenv
 from twilio.twiml.messaging_response import MessagingResponse
 from twilio.rest import Client as TwilioClient
-from database import SessionLocal, Historial, Producto, Pedido, DetallePedido, crear_tablas
+from database import SessionLocal, Historial, Visitas, crear_tablas
 import mercadopago
 import os
 from pagos import crear_link_pago
+from datetime import datetime
+import json
 
 load_dotenv()
 
@@ -16,49 +18,55 @@ crear_tablas()  # crea las tablas al arrancar el servidor
 cliente = Anthropic()
 historial = []
 
+SERVICIOS_TEXTO = """
+- Plomería
+- Instalaciones eléctricas
+- Pintura
+- Carpintería
+- Herrería
+- Jardinería
+- Automatización
+"""
+
 def construir_system_prompt():
     db = SessionLocal()
-    productos = db.query(Producto).all()
     db.close()
-    
-    productos_texto = "\n".join(
-        f"- {p.nombre} | clave del producto: {p.clave_prod}| ${p.precio} MXN, marca {p.marca}"
-        for p in productos
-    )
-    return f"""Eres el asistente virtual de MEDICAL SUPPLIES MID, una tienda en línea
-de suministros médicos.
+    fecha_hoy = datetime.now().strftime("%d/%m/%Y")
+    servicios_texto = SERVICIOS_TEXTO
+    return f"""Eres el asistente virtual de OSORIO MANTENIMIENTO, un gestor de citas para realizar trabajos de mantenimiento.
+
+Hoy es {fecha_hoy}
 
 Tu trabajo es:
-1. Ayudar a los clientes a encontrar productos del catálogo
-2. Responder preguntas sobre precio, cantidad y especificaciones
-3. Indicar precios y disponibilidad
-4. Guiar al cliente hacia hacer un pedido
+1. Atender al cliente y verificar si sus necesidades van de acuerdo a los servicios que ofrecemos
+2. Siempre es posible atenderles en persona siempre y cuando la cita esté pagada
+3. Agendar una cita para el cliente 
 
-CATÁLOGO ACTUAL:
-{productos_texto}
+Tipo de servicios brindados:{servicios_texto}
 
 Reglas importantes:
 - Responde siempre en español, de forma amable y cálida
-- Si un producto no tiene stock suficiente, dilo claramente y ofrece alternativas
-- Siempre que menciones un producto, no menciones su clave_prod a menos que elc cliente la pida
-- Si el cliente quiere comprar, pide su nombre y dirección de envío
-- No inventes productos que no están en el catálogo
-- Advierte que nuestro servicio es exclusivamente en la ciudad de Mérida y alrededores.
+- También aclara que nuestro equipo habla inglés o francés
+- No inventes servicios que no están en el catálogo.
+- Advierte que la tarifa de visita dentro de la ciudad de Mérida es de $475 MXN.
 - No usar emojis
 - No uses formato Markdown, asteriscos, ni negritas. Solo texto plano.
 - Sé breve: máximo 3-4 oraciones por respuesta
+- Cuando el cliente confirme su intención de recibir la visita, preguntar los siguientes datos de contacto:
+    - Nombre
+    - Dirección de la visita
 
-- Cuando el cliente confirme que quiere comprar un producto específico 
-y te haya dado su nombre y dirección, responde EXACTAMENTE en este formato 
-y nada más:
+- Y proponer el 1° horario disponible del día siguiente
+- Las visitas se agendan entre las 9am y 6pm de lunes a viernes y de 9pm a 2pm los sábados. Los domingos no laboramos
+- Cuando recibas todos los datos de contacto, mandar link de pago para concretar la cita. Si no se paga, no se concreta la cita
 
-COMPRA:nombre_cliente|dirección_completa|clave_prod1:cantidad1,clave_prod2:cantidad2,clave_prodN:cantidadN
+- Cuando tengas nombre y dirección del cliente, responde EXACTAMENTE en este formato JSON y nada más:
 
-Ejemplo:
-COMPRA:Juan García|Calle Montejo, Mérida|HB112:5,PAR022:3,...
+CITA:{"nombre": "Juan García", "direccion": "Calle 60 123, Mérida"}
 
-- Solo usa ese formato cuando tengas nombre, dirección y al menos un producto confirmado
-- No uses valores None o vacíos
+- No agregues texto antes ni después del formato CITA:
+- Solo usa ese formato cuando tengas ambos datos confirmados
+- No uses valores null o vacíos
 
 """
 
@@ -69,7 +77,7 @@ class Mensaje(BaseModel):
 # ENDPOINTS 
 @app.get("/")
 def inicio():
-    return {"status": "Medical Supplies MID funcionando"}
+    return {"status": "OSARIO II activo"}
 
 @app.post("/chat")
 def chat(mensaje: Mensaje):
@@ -113,74 +121,49 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
     db.add(Historial(numero=numero, role="assistant", contenido=texto_respuesta)) # Guarda la respuesta en la base de datos
     db.commit()
 
-    if texto_respuesta.startswith("COMPRA:"): # Detectar la intención de compra
+    if texto_respuesta.startswith("CITA:"): # Detectar la intención de compra
         print(f"DEBUG - texto_respuesta: '{texto_respuesta}'")
         try:
-            _, datos = texto_respuesta.split("COMPRA:")
+            _, json_raw = texto_respuesta.split("CITA:")
+            datos = json.loads(json_raw.strip())
             print(f"DEBUG - datos: '{datos}'")
-            partes = datos.split("|")
-            nombre_cliente = partes[0].strip()
-            direccion = partes[1].strip()
-            claves_raw = partes[2].strip()
-            print(f"DEBUG - cliente: '{nombre_cliente}', direccion: '{direccion}' productos: {claves_raw}")
 
-            # Crear el pedido principal
-            pedido = Pedido(
-                numero=numero,
-                nombre_cliente=nombre_cliente,
-                direccion=direccion,
-                estado="pendiente"
-            )
-            db.add(pedido)
-            db.flush() 
+            nombre_cliente = datos["nombre"].strip()
+            direccion = datos["direccion"].strip()
+            print(f"DEBUG - cliente: {nombre_cliente}, direccion: {direccion}")
 
-            total = 0
-            detalles_texto = []
-            items_mp = []  # para MercadoPago
+            if not nombre_cliente or nombre_cliente.lower() == "none":
+                texto_respuesta = "Entendido, si necesitas algo más con gusto te ayudo."
+        
+            else: # Crear cita
+                cita = Visitas(
+                    numero=numero,
+                    nombre_cliente=nombre_cliente,
+                    direccion=direccion,
+                    descripcion = None,
+                    fecha_visita = None,
+                    hora_visita = None,
+                    estado="pendiente"
+                )
+                db.add(cita)
+                db.flush() 
 
-            # Procesar cada producto
-            for item in claves_raw.split(","):
-                claveProd, cantidad_str = item.strip().split(":")
-                cantidad = int(cantidad_str.strip())
+                pago = [] 
 
-                producto = db.query(Producto).filter(
-                    Producto.clave_prod == claveProd.strip().upper()
-                ).first()
-
-                if producto and producto.stock >= cantidad: 
-                    print(f"DEBUG - stock ok, añadiendo {cantidad} {producto.nombre} a pedido...")
-                    detalle = DetallePedido(
-                            pedido_id=pedido.id,
-                            producto=producto.nombre,
-                            cantidad=cantidad,
-                            precio_unitario=producto.precio
-                        )
-                    db.add(detalle)
-                
-                    precio = float(producto.precio)
-                    subtotal = precio * cantidad
-                    total += subtotal
-                    detalles_texto.append(f"{cantidad}x {producto.nombre} ${subtotal:.2f} MXN")
-
-                    items_mp.append({
-                        "title": producto.nombre,
-                        "quantity": cantidad,
-                        "unit_price": precio,
-                        "currency_id": "MXN"
+                pago.append({
+                    "title": "Visita de mantenimiento",
+                    "quantity": 1,
+                    "unit_price": 475,
+                    "currency_id": "MXN"
                     })
 
-                else:
-                    print(f"DEBUG - no hay suficiente stock de {producto.nombre}...")
-                    texto_respuesta = f"No contamos con la cantidad de {producto.nombre} suficiente."
+                db.commit()
+                print(f"DEBUG - cita creada con id: {cita.id}")
 
-            db.commit()
-            print(f"DEBUG - pedido creado id: {pedido.id}")
+                link = crear_link_pago(pago, cita.id) # Generar link de pago
+                print(f"DEBUG - link generado: {link}")
 
-            link = crear_link_pago(items_mp, pedido.id) # Generar link de pago
-            print(f"DEBUG - link generado: {link}")
-
-            resumen = "\n".join(detalles_texto)
-            texto_respuesta = f"Pedido confirmado {nombre_cliente}:\n{resumen}\nTotal: ${total:.2f} MXN\nLink de pago: {link}"
+                texto_respuesta = f"Cita registrada {nombre_cliente}. El costo de la visita es $475 MXN. Aquí está tu link de pago para confirmar la cita: {link}"
 
         except Exception as e:
             print(f"DEBUG - error interno: {e}")
@@ -208,30 +191,20 @@ async def webhook_mercadopago(request: Request):
             pedido_id = payment_info["external_reference"]
             
             db = SessionLocal() # Actualizamos el pedido en la base de datos
-            pedido = db.query(Pedido).filter_by(id=int(pedido_id)).first()
-            if pedido:
-                pedido.estado = "pagado"
-
-                detalles = db.query(DetallePedido).filter(DetallePedido.pedido_id == pedido.id).all()
-                for detalle in detalles:
-                    prod = db.query(Producto).filter(Producto.nombre == detalle.producto).first()
-                    if prod:
-                        prod.stock -= detalle.cantidad
-
+            visita = db.query(Visitas).filter_by(id=int(pedido_id)).first()
+            if visita:
+                visita.estado = "pagado"
                 db.commit()
                 
                 twilio_client = TwilioClient( # Manda mensaje de confirmación por WhatsApp
                     os.environ.get("TWILIO_ACCOUNT_SID"),
                     os.environ.get("TWILIO_AUTH_TOKEN")
                 )
-                # Construir resumen de productos
-                detalles = db.query(DetallePedido).filter_by(pedido_id=pedido.id).all()
-                resumen = ", ".join([f"{d.cantidad}x {d.producto}" for d in detalles])
-                
+
                 twilio_client.messages.create(
                     from_=os.environ.get("TWILIO_WA_NUMBER"),
-                    to=pedido.numero,
-                    body=f"Tu pago fue confirmado. Pedido: {resumen}. Su pedido llegará hoy antes de las 8 pm. Gracias {pedido.nombre_cliente}."
+                    to=visita.numero,
+                    body=f"Tu pago fue confirmado. Su visita se agendó para el {visita.fecha_visita} a las {visita.hora_visita}. Gracias {visita.nombre_cliente}."
                 )
 
             db.close()
