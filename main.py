@@ -62,7 +62,7 @@ Reglas importantes:
 
 - Cuando tengas nombre y dirección del cliente, responde EXACTAMENTE en este formato JSON y nada más:
 
-CITA:{"nombre": "Juan García", "direccion": "Calle 60 123, Mérida"}
+CITA:{{"nombre": "Juan García", "direccion": "Calle 60 123, Mérida"}}
 
 - No agregues texto antes ni después del formato CITA:
 - Solo usa ese formato cuando tengas ambos datos confirmados
