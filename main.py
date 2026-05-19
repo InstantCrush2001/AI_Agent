@@ -66,7 +66,7 @@ Reglas importantes:
 - Responde siempre en español, de forma amable y cálida
 - También aclara que nuestro equipo habla inglés o francés
 - No inventes servicios que no están enlistados.
-- Advierte que la tarifa de visita dentro de la ciudad de Mérida es de $475 MXN.
+- Advierte que la tarifa de visita dentro de la ciudad de Mérida es de $475 MXN y en caso de concretarse el servicio, se descuenta del total.
 - No usar emojis
 - No uses formato Markdown, asteriscos, ni negritas. Solo texto plano.
 - Sé breve: máximo 3-4 oraciones por respuesta
@@ -80,14 +80,15 @@ Reglas importantes:
 - Las visitas se agendan entre las 9am y 6pm de lunes a viernes y de 9pm a 2pm los sábados. Los domingos no laboramos.
 - Proponer visita dos horas después del último horario ocupado del día. Si no hay visitas agendadas, proponer el 1° horario.
 - Verificar que el horario que propone el cliente tenga mínimo dos horas de separación de otras visitas agendadas.
+- No dar detalles de la agenda del día. Sólo trabajar con el horario elegido.
 
 - Cuando tengas nombre, dirección del cliente, y fecha de visita pactada, responde EXACTAMENTE en este formato JSON y nada más:
 
-CITA:{{"nombre": "Juan García", "direccion": "Calle 60 123, Mérida", "descripción": "jardinería", "fecha": "2026-05-20", "hora": "09:00"}}
+CITA:{{"nombre": "Juan García", "direccion": "Calle 60 123", "descripción": "jardinería", "fecha": "2026-05-20", "hora": "09:00"}}
 
 - Cuando recibas todos los datos de contacto y fecha de cita, mandar link de pago para confirmar la cita. 
 - No agregues texto antes ni después del formato CITA:
-- Solo usa ese formato cuando tengas ambos datos confirmados
+- Solo usa ese formato cuando tengas todos los datos confirmados
 - No uses valores null o vacíos
 
 """
@@ -144,18 +145,18 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
     db.commit()
 
     if texto_respuesta.startswith("CITA:"): # Detectar la intención de cita
-        print(f"DEBUG - texto_respuesta: '{texto_respuesta}'")
+        print(f"DEBUG 1 - texto_respuesta: '{texto_respuesta}'")
         try:
             _, json_raw = texto_respuesta.split("CITA:")
             datos = json.loads(json_raw.strip())
-            print(f"DEBUG - datos: '{datos}'")
+            print(f"DEBUG 2 - datos: '{datos}'")
 
             nombre_cliente = datos["nombre"].strip()
             direccion = datos["direccion"].strip()
             descripcion = datos["descripción"].strip()
             fecha_cita = datos["fecha"].strip()
             hora_cita = datos["hora"].strip()
-            print(f"DEBUG - cliente: {nombre_cliente}, direccion: {direccion}, desc: {descripcion}, a las {hora_cita} del {fecha_cita}")
+            print(f"DEBUG 3 - cliente: {nombre_cliente}, direccion: {direccion}, desc: {descripcion}, a las {hora_cita} del {fecha_cita}")
 
             if not nombre_cliente or nombre_cliente.lower() == "none":
                 texto_respuesta = "Entendido, si necesitas algo más con gusto te ayudo."
@@ -183,10 +184,10 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
                     })
 
                 db.commit()
-                print(f"DEBUG - cita creada con id: {cita.id}")
+                print(f"DEBUG 4 - cita creada con id: {cita.id}")
 
                 link = crear_link_pago(pago, cita.id) # Generar link de pago
-                print(f"DEBUG - link generado: {link}")
+                print(f"DEBUG 5 - link generado: {link}")
 
                 texto_respuesta = f"Cita registrada {nombre_cliente}. El costo de la visita es $475 MXN. Aquí está tu link de pago para confirmar la cita: {link}"
 
