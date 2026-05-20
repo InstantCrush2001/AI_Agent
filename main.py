@@ -4,7 +4,7 @@ from anthropic import Anthropic
 from dotenv import load_dotenv
 from twilio.twiml.messaging_response import MessagingResponse
 from twilio.rest import Client as TwilioClient
-from database import SessionLocal, Historial, Visitas, crear_tablas
+from database import SessionLocal, Historial, Visitas, Cotizacion, CitaServicio, crear_tablas
 import mercadopago
 import os
 from pagos import crear_link_pago
@@ -64,7 +64,7 @@ Tu trabajo es:
 
 Reglas importantes:
 - Responde siempre en español, de forma amable y cálida
-- También aclara que nuestro equipo habla inglés o francés
+- También aclara que nuestros técnicos hablan inglés y francés
 - No inventes servicios que no están enlistados.
 - Advierte que la tarifa de visita dentro de la ciudad de Mérida es de $475 MXN y en caso de concretarse el servicio, se descuenta del total.
 - No usar emojis
@@ -98,6 +98,12 @@ CITA:{{"nombre": "Juan García", "direccion": "Calle 60 123",
 # Le dice a FastAPI qué forma tiene el JSON que va a recibir
 class Mensaje(BaseModel):
     texto: str
+
+class CotizacionInput(BaseModel):
+    numero: str          # whatsapp:+521234567890
+    nombre_cliente: str
+    descripcion: str
+    precio: int
 
 # ENDPOINTS 
 @app.get("/")
@@ -197,6 +203,52 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
             print(f"DEBUG - error interno: {e}")
             texto_respuesta = "Hubo un problema al procesar tu pedido. Por favor intenta de nuevo."
 
+    elif "HORARIO:" in texto_respuesta: # procesa cita de servicio confirmada
+        try:
+            inicio = texto_respuesta.find("HORARIO:")
+            json_raw = texto_respuesta[inicio + 8:]
+            inicio_json = json_raw.find("{")
+            fin_json = json_raw.rfind("}") + 1
+            json_limpio = json_raw[inicio_json:fin_json]
+            datos = json.loads(json_limpio)
+
+            # Buscar cotización aceptada de este cliente
+            cotizacion = db.query(Cotizacion).filter(
+                Cotizacion.numero == numero,
+                Cotizacion.estado == "aceptada"
+            ).order_by(Cotizacion.fecha.desc()).first()
+
+            if cotizacion:
+                cita = CitaServicio(
+                    numero=numero,
+                    nombre_cliente=cotizacion.nombre_cliente,
+                    direccion=cotizacion.descripcion,
+                    descripcion=cotizacion.descripcion,
+                    precio=cotizacion.precio,
+                    fecha_servicio=datos["fecha"],
+                    hora_servicio=datos["hora"],
+                    estado="pendiente",
+                    cotizacion_id=cotizacion.id
+                )
+                db.add(cita)
+                db.flush()
+
+                pago = [{
+                    "title": cotizacion.descripcion,
+                    "quantity": 1,
+                    "unit_price": float(cotizacion.precio),
+                    "currency_id": "MXN"
+                }]
+
+                db.commit()
+                link = crear_link_pago(pago, cita.id)
+                texto_respuesta = f"Perfecto {cotizacion.nombre_cliente}, su cita de servicio quedará confirmada al realizar el pago de ${cotizacion.precio} MXN: {link}"
+
+        except Exception as e:
+            print(f"DEBUG - error procesando HORARIO: {e}")
+            texto_respuesta = "Hubo un problema al agendar su cita. Por favor intenta de nuevo."
+
+
     db.close()
     twiml = MessagingResponse()
     twiml.message(texto_respuesta)
@@ -237,3 +289,32 @@ async def webhook_mercadopago(request: Request):
 
             db.close()
     return {"status": "ok"}
+
+@app.post("/cotizaciones")
+async def crear_cotizacion(data: CotizacionInput):
+    db = SessionLocal()
+
+    # Guarda la cotización en PostgreSQL
+    cotizacion = Cotizacion(
+        numero=data.numero,
+        nombre_cliente=data.nombre_cliente,
+        descripcion=data.descripcion,
+        precio=data.precio
+    )
+    db.add(cotizacion)
+    db.commit()
+
+    # Manda el mensaje automático al cliente por WhatsApp
+    twilio_client = TwilioClient(
+        os.environ.get("TWILIO_ACCOUNT_SID"),
+        os.environ.get("TWILIO_AUTH_TOKEN")
+    )
+
+    twilio_client.messages.create(
+        from_=os.environ.get("TWILIO_WA_NUMBER"),
+        to=data.numero,
+        body=f"Hola {data.nombre_cliente}, le compartimos la cotización para el trabajo solicitado:\n\n{data.descripcion}\n\nPrecio estimado: ${data.precio} MXN\n\nPara aceptar y agendar su visita responda ACEPTO. Para cualquier duda estamos a sus órdenes."
+    )
+
+    db.close()
+    return {"status": "cotizacion enviada", "id": cotizacion.id}

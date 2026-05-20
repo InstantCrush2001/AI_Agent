@@ -39,6 +39,31 @@ class Visitas(Base):
 
     # detalles = relationship("DetallePedido", back_populates="pedido")
 
+class Cotizacion(Base):
+    __tablename__ = "cotizaciones"
+
+    id = Column(Integer, primary_key=True)
+    numero = Column(String(50))        # número de WhatsApp del cliente
+    nombre_cliente = Column(String(100))
+    descripcion = Column(Text)         # descripción del trabajo
+    precio = Column(Integer)           # precio estimado
+    estado = Column(String(20), default="enviada")  # enviada, aceptada, rechazada
+    fecha = Column(DateTime, default=datetime.utcnow)
+
+class CitaServicio(Base):
+    __tablename__ = "citas_servicio"
+
+    id = Column(Integer, primary_key=True)
+    numero = Column(String(50))
+    nombre_cliente = Column(String(100))
+    direccion = Column(Text)
+    descripcion = Column(Text)          # el trabajo a realizar
+    precio = Column(Integer)            # precio de la cotización aceptada
+    fecha_servicio = Column(String(20)) # fecha acordada
+    hora_servicio = Column(String(10))  # hora acordada
+    estado = Column(String(20), default="pendiente")  # pendiente, confirmada, completada, cancelada
+    cotizacion_id = Column(Integer, ForeignKey("cotizaciones.id"))  # referencia a la cotización
+    fecha = Column(DateTime, default=datetime.utcnow)
 
 # Crea las tablas en PostgreSQL si no existen
 def crear_tablas():
