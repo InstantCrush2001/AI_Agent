@@ -77,9 +77,8 @@ Reglas importantes:
     - Nombre
     - Dirección de la visita
 - Y proponer el 1° horario disponible del día siguiente. 
-- Las visitas se agendan entre las 9am y 6pm de lunes a viernes y de 9pm a 2pm los sábados. Los domingos no laboramos.
-- Proponer visita dos horas después del último horario ocupado del día. Si no hay visitas agendadas, proponer el 1° horario.
-- Verificar que el horario que propone el cliente tenga mínimo dos horas de separación de otras visitas agendadas.
+- Las visitas se agendan en los siguientes horarios de lunes a viernes: 9am - 11am - 1pm - 4 pm - 6pm  
+  y los sábados: 9am - 11am - 1pm. Los domingos no laboramos.
 - No dar detalles de la agenda del día. Sólo trabajar con el horario elegido.
 
 - Cuando tengas nombre, dirección, servicio, fecha y hora confirmados, 

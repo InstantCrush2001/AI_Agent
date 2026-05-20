@@ -1,8 +1,8 @@
 import os
-from sqlalchemy import create_engine, Column, String, Float, Text, DateTime, Time, Integer, ForeignKey
+from sqlalchemy import create_engine, Column, String, Float, Text, DateTime, Date, Time, Integer, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
-from datetime import datetime
+from datetime import datetime, date
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
@@ -32,8 +32,8 @@ class Visitas(Base):
     nombre_cliente = Column(String(100))
     direccion = Column(Text)
     descripcion = Column(String(100))
-    fecha = Column(DateTime, default=datetime.utcnow)
-    fecha_visita = Column(DateTime, default=datetime.utcnow)
+    fecha = Column(Date, default=date.today)
+    fecha_visita = Column(Date, default=datetime.utcnow)
     hora_visita = Column(Time)
     estado = Column(String(20), default="pendiente")
 
