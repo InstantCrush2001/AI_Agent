@@ -257,8 +257,8 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
 @app.post("/webhook/mercadopago")
 async def webhook_mercadopago(request: Request):
     data = await request.json()
-    
-    # MercadoPago manda diferentes tipos de notificaciones, solo nos interesan las de pagos aprobados
+    pedido_id = data.get("pedido_id")
+    """# MercadoPago manda diferentes tipos de notificaciones, solo nos interesan las de pagos aprobados
     if data.get("type") == "payment":
         payment_id = data["data"]["id"]
         
@@ -268,26 +268,26 @@ async def webhook_mercadopago(request: Request):
         payment_info = payment["response"]
         
         if payment_info["status"] == "approved":
-            pedido_id = payment_info["external_reference"]
+            pedido_id = payment_info["external_reference"]"""
             
-            db = SessionLocal() # Actualizamos el pedido en la base de datos
-            visita = db.query(Visitas).filter_by(id=int(pedido_id)).first()
-            if visita:
-                visita.estado = "pagado"
-                db.commit()
+    db = SessionLocal() # Actualizamos el pedido en la base de datos
+    visita = db.query(Visitas).filter_by(id=int(pedido_id)).first()
+    if visita:
+        visita.estado = "pagado"
+        db.commit()
                 
-                twilio_client = TwilioClient( # Manda mensaje de confirmación por WhatsApp
+        twilio_client = TwilioClient( # Manda mensaje de confirmación por WhatsApp
                     os.environ.get("TWILIO_ACCOUNT_SID"),
                     os.environ.get("TWILIO_AUTH_TOKEN")
                 )
 
-                twilio_client.messages.create(
+        twilio_client.messages.create(
                     from_=os.environ.get("TWILIO_WA_NUMBER"),
                     to=visita.numero,
                     body=f"Tu pago fue confirmado. Su visita se agendó para el {visita.fecha_visita} a las {visita.hora_visita}. Gracias {visita.nombre_cliente}."
                 )
 
-            db.close()
+    db.close()
     return {"status": "ok"}
 
 @app.post("/cotizaciones")

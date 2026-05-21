@@ -33,7 +33,7 @@ class Visitas(Base):
     direccion = Column(Text)
     descripcion = Column(String(100))
     fecha = Column(Date, default=date.today)
-    fecha_visita = Column(Date, default=datetime.utcnow)
+    fecha_visita = Column(Date, default=date.today)
     hora_visita = Column(Time)
     estado = Column(String(20), default="pendiente")
 
