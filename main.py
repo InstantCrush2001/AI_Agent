@@ -131,6 +131,130 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
     numero = From
     db = SessionLocal()
 
+    #BLOQUE 1- INTERCEPTAR ACEPTO Y CONFIRMO
+
+    # ACEPTO
+    if Body.strip().upper() == "ACEPTO":
+        cotizacion = db.query(Cotizacion).filter(
+            Cotizacion.numero == numero,
+            Cotizacion.estado == "enviada"
+        ).order_by(Cotizacion.fecha.desc()).first()
+
+        if cotizacion:
+            cotizacion.estado = "aceptada"
+            db.commit()
+
+            # Buscar primer horario disponible
+            mañana = (datetime.now() + timedelta(days=1)).date()
+            horarios_disponibles = ["09:00", "10:00", "11:00", "12:00",
+                                "13:00", "14:00", "15:00", "16:00", "17:00"]
+
+            citas_mañana = db.query(CitaServicio).filter(
+                CitaServicio.fecha_servicio == str(mañana),
+                CitaServicio.estado != "cancelada"
+            ).all()
+
+            horas_ocupadas = [c.hora_servicio for c in citas_mañana]
+            primer_horario = next(
+                (h for h in horarios_disponibles if h not in horas_ocupadas),
+                None
+            )
+
+            if primer_horario:
+                texto_respuesta = f"Excelente {cotizacion.nombre_cliente}, su cotización ha sido aceptada. El primer horario disponible para realizar el trabajo es mañana {mañana.strftime('%d/%m/%Y')} a las {primer_horario}. Para confirmar responda CONFIRMO."
+            else:
+                texto_respuesta = f"Excelente {cotizacion.nombre_cliente}, su cotización ha sido aceptada. Lamentablemente no tenemos horarios disponibles mañana. Le contactaremos para agendar."
+
+            db.add(Historial(numero=numero, role="user", contenido=Body))
+            db.add(Historial(numero=numero, role="assistant", contenido=texto_respuesta))
+            db.commit()
+            db.close()
+
+            twiml = MessagingResponse()
+            twiml.message(texto_respuesta)
+            return Response(content=str(twiml), media_type="application/xml")
+
+        else:
+            db.close()
+            twiml = MessagingResponse()
+            twiml.message("No encontramos una cotización pendiente. Por favor contáctenos.")
+            return Response(content=str(twiml), media_type="application/xml")
+        
+    # CONFIRMO
+    if Body.strip().upper() in ["CONFIRMO", "SI", "SÍ"]:
+        cotizacion = db.query(Cotizacion).filter(
+            Cotizacion.numero == numero,
+            Cotizacion.estado == "aceptada"
+        ).order_by(Cotizacion.fecha.desc()).first()
+
+        if cotizacion:
+            mañana = (datetime.now() + timedelta(days=1)).date()
+            horarios_disponibles = ["09:00", "10:00", "11:00", "12:00",
+                                "13:00", "14:00", "15:00", "16:00", "17:00"]
+
+            citas_mañana = db.query(CitaServicio).filter(
+                CitaServicio.fecha_servicio == str(mañana),
+                CitaServicio.estado != "cancelada"
+            ).all()
+
+            horas_ocupadas = [c.hora_servicio for c in citas_mañana]
+            primer_horario = next(
+                (h for h in horarios_disponibles if h not in horas_ocupadas),
+                None
+            )
+
+            if primer_horario:
+                # Crear cita de servicio
+                cita = CitaServicio(
+                    numero=numero,
+                    nombre_cliente=cotizacion.nombre_cliente,
+                    direccion=cotizacion.descripcion,
+                    descripcion=cotizacion.descripcion,
+                    precio=cotizacion.precio,
+                    fecha_servicio=str(mañana),
+                    hora_servicio=primer_horario,
+                    estado="pendiente",
+                    cotizacion_id=cotizacion.id
+                )
+                db.add(cita)
+                db.flush()
+
+                pago = [{
+                    "title": cotizacion.descripcion,
+                    "quantity": 1,
+                    "unit_price": float(cotizacion.precio),
+                    "currency_id": "MXN"
+                }]
+
+                db.commit()
+                print(f"DEBUG - cita servicio creada id: {cita.id}")
+
+                link = crear_link_pago(pago, cita.id)
+
+                texto_respuesta = f"Su cita ha sido agendada para mañana {mañana.strftime('%d/%m/%Y')} a las {primer_horario}. Para confirmarla realice el pago de ${cotizacion.precio} MXN: {link}"
+
+                db.add(Historial(numero=numero, role="user", contenido=Body))
+                db.add(Historial(numero=numero, role="assistant", contenido=texto_respuesta))
+                db.commit()
+                db.close()
+
+                twiml = MessagingResponse()
+                twiml.message(texto_respuesta)
+                return Response(content=str(twiml), media_type="application/xml")
+
+            else:
+                db.close()
+                twiml = MessagingResponse()
+                twiml.message("Lo sentimos, no hay horarios disponibles mañana. Le contactaremos para agendar.")
+                return Response(content=str(twiml), media_type="application/xml")
+
+        else:
+            db.close()
+            twiml = MessagingResponse()
+            twiml.message("No encontramos una cotización aceptada pendiente de confirmar.")
+            return Response(content=str(twiml), media_type="application/xml")
+        
+    #BLOQUE 2 - LLAMAR A CLAUDE
     mensajes_db = db.query(Historial).filter( # Recupera el historial de este usuario desde la base de datos
     Historial.numero == numero
     ).order_by(Historial.fecha).all()
@@ -152,6 +276,7 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
     db.add(Historial(numero=numero, role="assistant", contenido=texto_respuesta)) # Guarda la respuesta en la base de datos
     db.commit()
 
+    #BLOQUE 3 - PROCESAR RESPUESTA DE CLAUDE
     if "CITA:" in texto_respuesta: # Detectar la intención de cita
         print(f"DEBUG 1 - texto_respuesta: '{texto_respuesta}'")
         try:
@@ -257,7 +382,7 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
 @app.post("/webhook/mercadopago")
 async def webhook_mercadopago(request: Request):
     data = await request.json()
-    pedido_id = data.get("pedido_id")
+    pedido_id = data.get("pedido_id") #DEBUG sin pago
     """# MercadoPago manda diferentes tipos de notificaciones, solo nos interesan las de pagos aprobados
     if data.get("type") == "payment":
         payment_id = data["data"]["id"]

@@ -48,7 +48,7 @@ class Cotizacion(Base):
     descripcion = Column(Text)         # descripción del trabajo
     precio = Column(Integer)           # precio estimado
     estado = Column(String(20), default="enviada")  # enviada, aceptada, rechazada
-    fecha = Column(DateTime, default=datetime.utcnow)
+    fecha = Column(DateTime, default=datetime.now)
 
 class CitaServicio(Base):
     __tablename__ = "citas_servicio"
