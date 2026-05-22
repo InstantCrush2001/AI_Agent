@@ -131,7 +131,7 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
     numero = From
     db = SessionLocal()
 
-    #BLOQUE 1- INTERCEPTAR ACEPTO Y CONFIRMO
+    #BLOQUE 1- INTERCEPTAR ACEPTO Y CONFIRMO SIN CLAUDE
 
     # ACEPTO
     if Body.strip().upper() == "ACEPTO":
@@ -229,7 +229,7 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
                 db.commit()
                 print(f"DEBUG - cita servicio creada id: {cita.id}")
 
-                link = crear_link_pago(pago, cita.id)
+                link = crear_link_pago(pago, f"s_{cita.id}")
 
                 texto_respuesta = f"Su cita ha sido agendada para mañana {mañana.strftime('%d/%m/%Y')} a las {primer_horario}. Para confirmarla realice el pago de ${cotizacion.precio} MXN: {link}"
 
@@ -319,7 +319,7 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
                 db.commit()
                 print(f"DEBUG 4 - cita creada con id: {cita.id}")
 
-                link = crear_link_pago(pago, cita.id) # Generar link de pago
+                link = crear_link_pago(pago, f"v_{cita.id}") # Generar link de pago
                 print(f"DEBUG 5 - link generado: {link}")
 
                 texto_respuesta = f"Cita registrada {nombre_cliente}. El costo de la visita es $475 MXN. Aquí está tu link de pago para confirmar la cita: {link}"
@@ -327,51 +327,6 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
         except Exception as e:
             print(f"DEBUG - error interno: {e}")
             texto_respuesta = "Hubo un problema al procesar tu pedido. Por favor intenta de nuevo."
-
-    elif "HORARIO:" in texto_respuesta: # procesa cita de servicio confirmada
-        try:
-            inicio = texto_respuesta.find("HORARIO:")
-            json_raw = texto_respuesta[inicio + 8:]
-            inicio_json = json_raw.find("{")
-            fin_json = json_raw.rfind("}") + 1
-            json_limpio = json_raw[inicio_json:fin_json]
-            datos = json.loads(json_limpio)
-
-            # Buscar cotización aceptada de este cliente
-            cotizacion = db.query(Cotizacion).filter(
-                Cotizacion.numero == numero,
-                Cotizacion.estado == "aceptada"
-            ).order_by(Cotizacion.fecha.desc()).first()
-
-            if cotizacion:
-                cita = CitaServicio(
-                    numero=numero,
-                    nombre_cliente=cotizacion.nombre_cliente,
-                    direccion=cotizacion.descripcion,
-                    descripcion=cotizacion.descripcion,
-                    precio=cotizacion.precio,
-                    fecha_servicio=datos["fecha"],
-                    hora_servicio=datos["hora"],
-                    estado="pendiente",
-                    cotizacion_id=cotizacion.id
-                )
-                db.add(cita)
-                db.flush()
-
-                pago = [{
-                    "title": cotizacion.descripcion,
-                    "quantity": 1,
-                    "unit_price": float(cotizacion.precio),
-                    "currency_id": "MXN"
-                }]
-
-                db.commit()
-                link = crear_link_pago(pago, cita.id)
-                texto_respuesta = f"Perfecto {cotizacion.nombre_cliente}, su cita de servicio quedará confirmada al realizar el pago de ${cotizacion.precio} MXN: {link}"
-
-        except Exception as e:
-            print(f"DEBUG - error procesando HORARIO: {e}")
-            texto_respuesta = "Hubo un problema al agendar su cita. Por favor intenta de nuevo."
 
 
     db.close()
@@ -382,7 +337,8 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
 @app.post("/webhook/mercadopago")
 async def webhook_mercadopago(request: Request):
     data = await request.json()
-    pedido_id = data.get("pedido_id") #DEBUG sin pago
+    orden_id = data.get("orden_id") #DEBUG sin pago
+
     """# MercadoPago manda diferentes tipos de notificaciones, solo nos interesan las de pagos aprobados
     if data.get("type") == "payment":
         payment_id = data["data"]["id"]
@@ -396,20 +352,38 @@ async def webhook_mercadopago(request: Request):
             pedido_id = payment_info["external_reference"]"""
             
     db = SessionLocal() # Actualizamos el pedido en la base de datos
-    visita = db.query(Visitas).filter_by(id=int(pedido_id)).first()
-    if visita:
-        visita.estado = "pagado"
-        db.commit()
-                
+
+    if str(orden_id).startswith("v_"):
+        id_fil = int(str(orden_id).replace("v_",""))
+        registro = db.query(Visitas).filter_by(id=id_fil).first()
+        if registro:
+            registro.estado = "pagado"
+            db.commit()
+            mensaje = f"Pago recibido. Su visita para diagnóstico ha sido confirmada para el {registro.fecha_visita} a las {registro.hora_visita}. Gracias {registro.nombre_cliente}."
+            numero = registro.numero
+    
+    elif str(orden_id).startswith("s_"):
+        id_fil = int(str(orden_id).replace("s_",""))
+        registro = db.query(CitaServicio).filter_by(id=id_fil).first()
+        if registro:
+            registro.estado = "pagado"
+            db.commit()
+            mensaje = f"Pago recibido. Su cita de servicio ha sido confirmada para el {registro.fecha_servicio} a las {registro.hora_servicio}. Gracias {registro.nombre_cliente}."
+            numero = registro.numero
+    
+    else:
+        db.close()
+        return {"status": "ok"}
+
+    if registro:          
         twilio_client = TwilioClient( # Manda mensaje de confirmación por WhatsApp
                     os.environ.get("TWILIO_ACCOUNT_SID"),
                     os.environ.get("TWILIO_AUTH_TOKEN")
                 )
-
         twilio_client.messages.create(
                     from_=os.environ.get("TWILIO_WA_NUMBER"),
-                    to=visita.numero,
-                    body=f"Tu pago fue confirmado. Su visita se agendó para el {visita.fecha_visita} a las {visita.hora_visita}. Gracias {visita.nombre_cliente}."
+                    to=numero,
+                    body=mensaje
                 )
 
     db.close()

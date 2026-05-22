@@ -4,11 +4,11 @@ from datetime import datetime, timedelta
 
 sdk = mercadopago.SDK(os.environ.get("MP_ACCESS_TOKEN"))
 
-def crear_link_pago(items: list, pedido_id: int) -> str:
+def crear_link_pago(items: list, orden_id: str) -> str:
     preference_data = {
         "items": items,
         "notification_url": f"{os.environ.get('BASE_URL')}/webhook/mercadopago", # MercadoPago notificará a esta URL cuando el pago sea exitoso
-        "external_reference": str(pedido_id), # ID de tu pedido para identificarlo cuando llegue la notificación
+        "external_reference": str(orden_id), # ID de tu pedido para identificarlo cuando llegue la notificación
         "date_of_expiration": (datetime.now() + timedelta(hours=24)).strftime("%Y-%m-%dT%H:%M:%S.000-06:00"),
     }
 
