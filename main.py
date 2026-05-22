@@ -104,6 +104,7 @@ class CotizacionInput(BaseModel):
     nombre_cliente: str
     descripcion: str
     precio: int
+    visita_id: int
 
 # ENDPOINTS 
 @app.get("/")
@@ -401,7 +402,8 @@ async def crear_cotizacion(data: CotizacionInput):
         numero=data.numero,
         nombre_cliente=data.nombre_cliente,
         descripcion=data.descripcion,
-        precio=data.precio
+        precio=data.precio,
+        visita_id = data.visita_id
     )
     db.add(cotizacion)
     db.commit()

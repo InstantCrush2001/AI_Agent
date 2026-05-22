@@ -24,7 +24,7 @@ class Historial(Base):
     numero = Column(String(50))   # número de WhatsApp del usuario
     role = Column(String(20))     # "user" o "assistant"
     contenido = Column(Text)      # el texto del mensaje
-    fecha = Column(DateTime, default=datetime.now(MEXICO_TZ))
+    fecha = Column(DateTime, default=lambda: datetime.now(MEXICO_TZ))
 
 class Visitas(Base):
     __tablename__ = "visitas"
