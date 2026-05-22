@@ -181,7 +181,7 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
             return Response(content=str(twiml), media_type="application/xml")
         
     # CONFIRMO
-    if Body.strip().upper() in ["CONFIRMO", "SI", "SÍ"]:
+    if Body.strip().upper() == "CONFIRMO":
         cotizacion = db.query(Cotizacion).filter(
             Cotizacion.numero == numero,
             Cotizacion.estado == "aceptada"
@@ -204,11 +204,14 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
             )
 
             if primer_horario:
+                # Obtener dirección de la visita correspondiente
+                visita = db.query(Visitas).filter_by(id=cotizacion.visita_id).first()
+                direccion = visita.direccion if visita else ""
                 # Crear cita de servicio
                 cita = CitaServicio(
                     numero=numero,
                     nombre_cliente=cotizacion.nombre_cliente,
-                    direccion=cotizacion.descripcion,
+                    direccion=direccion,
                     descripcion=cotizacion.descripcion,
                     precio=cotizacion.precio,
                     fecha_servicio=str(mañana),
@@ -402,6 +405,7 @@ async def crear_cotizacion(data: CotizacionInput):
     )
     db.add(cotizacion)
     db.commit()
+    cotizacion_id = cotizacion.id 
 
     # Manda el mensaje automático al cliente por WhatsApp
     twilio_client = TwilioClient(
@@ -416,4 +420,4 @@ async def crear_cotizacion(data: CotizacionInput):
     )
 
     db.close()
-    return {"status": "cotizacion enviada", "id": cotizacion.id}
+    return {"status": "cotizacion enviada", "id": cotizacion_id}

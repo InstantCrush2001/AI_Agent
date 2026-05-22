@@ -2,7 +2,7 @@ import os
 from sqlalchemy import create_engine, Column, String, Float, Text, DateTime, Date, Time, Integer, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
-from datetime import datetime, date
+from datetime import datetime, date, timezone, timedelta
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
@@ -15,6 +15,8 @@ SessionLocal = sessionmaker(bind=engine)
 # Base para definir tablas
 Base = declarative_base()
 
+MEXICO_TZ = timezone(timedelta(hours=-6))
+
 class Historial(Base):
     __tablename__ = "historiales"
 
@@ -22,7 +24,7 @@ class Historial(Base):
     numero = Column(String(50))   # número de WhatsApp del usuario
     role = Column(String(20))     # "user" o "assistant"
     contenido = Column(Text)      # el texto del mensaje
-    fecha = Column(DateTime, default=datetime.utcnow)
+    fecha = Column(DateTime, default=datetime.now(MEXICO_TZ))
 
 class Visitas(Base):
     __tablename__ = "visitas"
@@ -37,7 +39,6 @@ class Visitas(Base):
     hora_visita = Column(Time)
     estado = Column(String(20), default="pendiente")
 
-    # detalles = relationship("DetallePedido", back_populates="pedido")
 
 class Cotizacion(Base):
     __tablename__ = "cotizaciones"
@@ -49,6 +50,7 @@ class Cotizacion(Base):
     precio = Column(Integer)           # precio estimado
     estado = Column(String(20), default="enviada")  # enviada, aceptada, rechazada
     fecha = Column(DateTime, default=datetime.now)
+    visita_id = Column(Integer, ForeignKey("visitas.id"))
 
 class CitaServicio(Base):
     __tablename__ = "citas_servicio"
