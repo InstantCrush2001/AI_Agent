@@ -8,7 +8,7 @@ from database import SessionLocal, Historial, Visitas, Cotizacion, CitaServicio,
 import mercadopago
 import os
 from pagos import crear_link_pago
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import json
 
 load_dotenv()
@@ -17,6 +17,7 @@ app = FastAPI()
 crear_tablas()  # crea las tablas al arrancar el servidor
 cliente = Anthropic()
 historial = []
+MEXICO_TZ = timezone(timedelta(hours=-6))
 
 SERVICIOS_TEXTO = """
 - Plomería
@@ -31,11 +32,11 @@ SERVICIOS_TEXTO = """
 def construir_system_prompt():
     db = SessionLocal()
     db.close()
-    fecha_hoy = datetime.now().strftime("%d/%m/%Y")
+    fecha_hoy = datetime.now(MEXICO_TZ).strftime("%d/%m/%Y")
     servicios_texto = SERVICIOS_TEXTO
 
     # Obtener visitas del día siguiente
-    mañana = (datetime.now() + timedelta(days=1)).date()
+    mañana = (datetime.now(MEXICO_TZ) + timedelta(days=1)).date()
     visitas_mañana = db.query(Visitas).filter(
         Visitas.fecha_visita == mañana,
         Visitas.estado != "cancelada"
@@ -110,22 +111,6 @@ class CotizacionInput(BaseModel):
 @app.get("/")
 def inicio():
     return {"status": "OSARIO II activo"}
-
-@app.post("/chat")
-def chat(mensaje: Mensaje):
-    historial.append({"role": "user", "content": mensaje.texto})
-
-    respuesta = cliente.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=1024,
-        system=construir_system_prompt(),
-        messages=historial,
-    )
-
-    texto_respuesta = respuesta.content[0].text
-    historial.append({"role": "assistant", "content": texto_respuesta})
-
-    return {"respuesta": texto_respuesta}
 
 @app.post("/whatsapp")
 async def whatsapp(Body: str = Form(...), From: str = Form(...)):
