@@ -8,7 +8,8 @@ from database import SessionLocal, Historial, Visitas, Cotizacion, CitaServicio,
 import mercadopago
 import os
 from pagos import crear_link_pago
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 import json
 
 load_dotenv()
@@ -17,7 +18,8 @@ app = FastAPI()
 crear_tablas()  # crea las tablas al arrancar el servidor
 cliente = Anthropic()
 historial = []
-MEXICO_TZ = timezone(timedelta(hours=-6))
+MEXICO_TZ = ZoneInfo("America/Mexico_City")
+ahora_mexico = datetime.now(MEXICO_TZ)
 
 SERVICIOS_TEXTO = """
 - Plomería
@@ -31,16 +33,16 @@ SERVICIOS_TEXTO = """
 
 def construir_system_prompt():
     db = SessionLocal()
-    db.close()
-    fecha_hoy = datetime.now(MEXICO_TZ).strftime("%d/%m/%Y")
+    fecha_hoy = ahora_mexico.strftime("%d/%m/%Y") 
     servicios_texto = SERVICIOS_TEXTO
 
     # Obtener visitas del día siguiente
-    mañana = (datetime.now(MEXICO_TZ) + timedelta(days=1)).date()
+    mañana = (ahora_mexico + timedelta(days=1)).date()
     visitas_mañana = db.query(Visitas).filter(
         Visitas.fecha_visita == mañana,
         Visitas.estado != "cancelada"
     ).all()
+
     db.close()
 
     # Construir texto de horarios ocupados
