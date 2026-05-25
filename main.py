@@ -47,7 +47,7 @@ def construir_system_prompt():
 
     # Construir texto de horarios ocupados
     horarios_ocupados = "\n".join(
-        f"- {v.hora_visita} — {v.direccion}"
+        f"- {v.hora_visita}"
         for v in visitas_mañana
     ) or "Ninguno"
 
@@ -119,7 +119,7 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
     numero = From
     db = SessionLocal()
 
-    #BLOQUE 1- INTERCEPTAR ACEPTO Y CONFIRMO SIN CLAUDE
+#BLOQUE 1- INTERCEPTAR ACEPTO Y CONFIRMO SIN CLAUDE
 
     # ACEPTO
     if Body.strip().upper() == "ACEPTO":
@@ -243,7 +243,7 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
             twiml.message("No encontramos una cotización aceptada pendiente de confirmar.")
             return Response(content=str(twiml), media_type="application/xml")
         
-    #BLOQUE 2 - LLAMAR A CLAUDE
+#BLOQUE 2 - LLAMAR A CLAUDE
     mensajes_db = db.query(Historial).filter( # Recupera el historial de este usuario desde la base de datos
     Historial.numero == numero
     ).order_by(Historial.fecha).all()
@@ -265,7 +265,7 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
     db.add(Historial(numero=numero, role="assistant", contenido=texto_respuesta)) # Guarda la respuesta en la base de datos
     db.commit()
 
-    #BLOQUE 3 - PROCESAR RESPUESTA DE CLAUDE
+#BLOQUE 3 - PROCESAR RESPUESTA DE CLAUDE
     if "CITA:" in texto_respuesta: # Detectar la intención de cita
         print(f"DEBUG 1 - texto_respuesta: '{texto_respuesta}'")
         try:
@@ -382,7 +382,6 @@ async def webhook_mercadopago(request: Request):
 async def crear_cotizacion(data: CotizacionInput):
     db = SessionLocal()
 
-    # Guarda la cotización en PostgreSQL
     cotizacion = Cotizacion(
         numero=data.numero,
         nombre_cliente=data.nombre_cliente,
@@ -394,7 +393,6 @@ async def crear_cotizacion(data: CotizacionInput):
     db.commit()
     cotizacion_id = cotizacion.id 
 
-    # Manda el mensaje automático al cliente por WhatsApp
     twilio_client = TwilioClient(
         os.environ.get("TWILIO_ACCOUNT_SID"),
         os.environ.get("TWILIO_AUTH_TOKEN")
