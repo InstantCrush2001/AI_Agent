@@ -100,7 +100,7 @@ class Mensaje(BaseModel):
     texto: str
 
 class CotizacionInput(BaseModel):
-    numero: str          # whatsapp:+521234567890
+    numero: str          #FORMATO --> whatsapp:+521234567890
     nombre_cliente: str
     descripcion: str
     precio: int
@@ -147,8 +147,7 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
 
             # Buscar primer horario disponible
             mañana = (datetime.now() + timedelta(days=1)).date()
-            horarios_disponibles = ["09:00", "10:00", "11:00", "12:00",
-                                "13:00", "14:00", "15:00", "16:00", "17:00"]
+            horarios_disponibles = ["09:00", "11:00", "13:00", "16:00", "18:00"]
 
             citas_mañana = db.query(CitaServicio).filter(
                 CitaServicio.fecha_servicio == str(mañana),
@@ -178,7 +177,7 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
         else:
             db.close()
             twiml = MessagingResponse()
-            twiml.message("No encontramos una cotización pendiente. Por favor contáctenos.")
+            twiml.message("No encontramos una cotización pendiente. Si tiene alguna pregunta contáctenos al 9992717117")
             return Response(content=str(twiml), media_type="application/xml")
         
     # CONFIRMO
@@ -190,8 +189,7 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
 
         if cotizacion:
             mañana = (datetime.now() + timedelta(days=1)).date()
-            horarios_disponibles = ["09:00", "10:00", "11:00", "12:00",
-                                "13:00", "14:00", "15:00", "16:00", "17:00"]
+            horarios_disponibles = ["09:00", "11:00", "13:00", "16:00", "18:00"]
 
             citas_mañana = db.query(CitaServicio).filter(
                 CitaServicio.fecha_servicio == str(mañana),
@@ -249,7 +247,7 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
             else:
                 db.close()
                 twiml = MessagingResponse()
-                twiml.message("Lo sentimos, no hay horarios disponibles mañana. Le contactaremos para agendar.")
+                twiml.message("Lo sentimos, no hay horarios disponibles mañana. Si tiene alguna pregunta contáctenos al 9992717117")
                 return Response(content=str(twiml), media_type="application/xml")
 
         else:

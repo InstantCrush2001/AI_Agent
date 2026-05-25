@@ -49,7 +49,7 @@ class Cotizacion(Base):
     descripcion = Column(Text)         # descripción del trabajo
     precio = Column(Integer)           # precio estimado
     estado = Column(String(20), default="enviada")  # enviada, aceptada, rechazada
-    fecha = Column(DateTime, default=datetime.now)
+    fecha = Column(DateTime, default=lambda: datetime.now(MEXICO_TZ))
     visita_id = Column(Integer, ForeignKey("visitas.id"))
 
 class CitaServicio(Base):
@@ -65,7 +65,7 @@ class CitaServicio(Base):
     hora_servicio = Column(String(10))  # hora acordada
     estado = Column(String(20), default="pendiente")  # pendiente, confirmada, completada, cancelada
     cotizacion_id = Column(Integer, ForeignKey("cotizaciones.id"))  # referencia a la cotización
-    fecha = Column(DateTime, default=datetime.utcnow)
+    fecha = Column(DateTime, default=lambda: datetime.now(MEXICO_TZ))
 
 # Crea las tablas en PostgreSQL si no existen
 def crear_tablas():
