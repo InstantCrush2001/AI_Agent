@@ -65,7 +65,7 @@ with tab1:
 
     ESTADO_ICON = {
         "pendiente": "🟡",
-        "confirmada": "🔵",
+        "pagado": "🔵",
         "completada": "🟢",
         "cancelada": "🔴",
     }
@@ -100,8 +100,8 @@ with tab1:
                     if tipo == "visita":
                         st.markdown(f"**VISITA · {hora_str}**")
                         st.caption(item.nombre_cliente)
-                        st.caption(f"{ESTADO_ICON.get(item.estado, '⚪')} {item.estado}")
-                        if item.estado == "pendiente":
+                        st.caption(f"{ESTADO_ICON.get(item.estado, '')} {item.estado}")
+                        if item.estado == "pagado":
                             b1, b2 = st.columns(2)
                             with b1:
                                 if st.button("✓", key=f"cv_{item.id}", help="Completar"):
@@ -113,11 +113,16 @@ with tab1:
                                     item.estado = "cancelada"
                                     db.commit()
                                     st.rerun()
+                        if item.estado == "pendiente":
+                            if st.button("Cancelar", key=f"xv_{item.id}"):
+                                item.estado = "cancelada"
+                                db.commit()
+                                st.rerun()
                     else:
                         st.markdown(f"**SERVICIO · {hora_str}**")
                         st.caption(item.nombre_cliente)
-                        st.caption(f"{ESTADO_ICON.get(item.estado, '⚪')} {item.estado}")
-                        if item.estado in ("pendiente", "confirmada"):
+                        st.caption(f"{ESTADO_ICON.get(item.estado, '')} {item.estado}")
+                        if item.estado == "pagado":
                             b1, b2 = st.columns(2)
                             with b1:
                                 if st.button("✓", key=f"cc_{item.id}", help="Completar"):
@@ -129,6 +134,11 @@ with tab1:
                                     item.estado = "cancelada"
                                     db.commit()
                                     st.rerun()
+                        if item.estado == "pendiente":
+                            if st.button("Cancelar", key=f"xv_{item.id}"):
+                                item.estado = "cancelada"
+                                db.commit()
+                                st.rerun()
 
 # TAB 2: COTIZACIONES 
 with tab2:

@@ -61,7 +61,7 @@ Horarios ocupados:
 
 Tu trabajo es:
 1. Atender al cliente y verificar si sus necesidades van de acuerdo a los servicios que ofrecemos
-2. Siempre es posible atenderles en persona siempre y cuando la cita esté pagada
+2. Siempre es posible atenderles en persona siempre y cuando la cita esté pagada, no importa que sea un servicio no enlistado
 3. Agendar una cita para el cliente 
 
 
@@ -81,7 +81,7 @@ Reglas importantes:
     - Dirección de la visita
 - Y proponer el 1° horario disponible del día siguiente. 
 - Las visitas se agendan en los siguientes horarios de lunes a viernes: 9am - 11am - 1pm - 4 pm - 6pm | los sábados: 9am - 11am - 1pm. Los domingos no laboramos.
-- No dar detalles de la agenda del día. Sólo trabajar con el horario elegido.
+- La agenda del día es privada, no dar detalles. Sólo trabajar con el horario elegido.
 - Si el cliente propone una hora de visita entre las enlistadas arriba, proponer el hora más cercano
 
 - Cuando tengas nombre, dirección, servicio, fecha y hora confirmados, 
@@ -107,6 +107,7 @@ class CotizacionInput(BaseModel):
     nombre_cliente: str
     descripcion: str
     precio: int
+    tiempo_servicio: int
     visita_id: int
 
 # ENDPOINTS 
@@ -193,6 +194,7 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
                 # Obtener dirección de la visita correspondiente
                 visita = db.query(Visitas).filter_by(id=cotizacion.visita_id).first()
                 direccion = visita.direccion if visita else ""
+                tiempo_servicio = cotizacion.tiempo_servicio if cotizacion.tiempo_servicio else 1
                 # Crear cita de servicio
                 cita = CitaServicio(
                     numero=numero,
@@ -200,6 +202,7 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
                     direccion=direccion,
                     descripcion=cotizacion.descripcion,
                     precio=cotizacion.precio,
+                    tiempo_servicio = tiempo_servicio,
                     fecha_servicio=str(mañana),
                     hora_servicio=primer_horario,
                     estado="pendiente",
@@ -387,6 +390,7 @@ async def crear_cotizacion(data: CotizacionInput):
         nombre_cliente=data.nombre_cliente,
         descripcion=data.descripcion,
         precio=data.precio,
+        tiempo_servicio = data.tiempo_servicio,
         visita_id = data.visita_id
     )
     db.add(cotizacion)

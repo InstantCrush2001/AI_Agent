@@ -1,7 +1,7 @@
 import os
 from sqlalchemy import create_engine, Column, String, Float, Text, DateTime, Date, Time, Integer, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, relationship
+from sqlalchemy.orm import sessionmaker
 from datetime import datetime, date
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
@@ -49,6 +49,7 @@ class Cotizacion(Base):
     precio = Column(Integer)           # precio estimado
     estado = Column(String(20), default="enviada")  # enviada, aceptada, rechazada
     fecha = Column(DateTime(timezone=True), default=datetime.now())
+    tiempo_servicio = Column(Integer, default=1)
     visita_id = Column(Integer, ForeignKey("visitas.id"))
 
 class CitaServicio(Base):
@@ -60,6 +61,7 @@ class CitaServicio(Base):
     direccion = Column(Text)
     descripcion = Column(Text)          # el trabajo a realizar
     precio = Column(Integer)            # precio de la cotización aceptada
+    tiempo_servicio = Column(Integer, default=1)
     fecha_servicio = Column(String(20)) # fecha acordada
     hora_servicio = Column(String(10))  # hora acordada
     estado = Column(String(20), default="pendiente")  # pendiente, confirmada, completada, cancelada
