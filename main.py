@@ -36,11 +36,15 @@ def construir_system_prompt():
     fecha_hoy = ahora_mexico.strftime("%d/%m/%Y") 
     servicios_texto = SERVICIOS_TEXTO
 
-    # Obtener visitas del día siguiente
+    # Obtener visitas y servicios del día siguiente
     mañana = (ahora_mexico + timedelta(days=1)).date()
     visitas_mañana = db.query(Visitas).filter(
         Visitas.fecha_visita == mañana,
         Visitas.estado != "cancelada"
+    ).all()
+    servicios_mañana = db.query(CitaServicio).filter(
+        CitaServicio.fecha_servicio == str(mañana),
+        CitaServicio.estado != "cancelada"
     ).all()
 
     db.close()
@@ -135,24 +139,54 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
             db.commit()
 
             # Buscar primer horario disponible
-            mañana = (datetime.now() + timedelta(days=1)).date()
-            horarios_disponibles = ["09:00", "11:00", "13:00", "16:00", "18:00"]
+            dia_sig = (datetime.now(MEXICO_TZ) + timedelta(days=1)).date()
+            horarios_disponibles = ["09:00", "11:00", "13:00"]#, "16:00", "18:00"]
+            primer_horario = None
+            fecha_disponible = None
 
-            citas_mañana = db.query(CitaServicio).filter(
-                CitaServicio.fecha_servicio == str(mañana),
-                CitaServicio.estado != "cancelada"
-            ).all()
+            for _ in range(15):  # busca hasta 15 días adelante
+                # Saltar domingos
+                if dia_sig.weekday() == 6:
+                    dia_sig += timedelta(days=1)
+                    continue
 
-            horas_ocupadas = [c.hora_servicio for c in citas_mañana]
-            primer_horario = next(
-                (h for h in horarios_disponibles if h not in horas_ocupadas),
-                None
-            )
+                citas_día = db.query(CitaServicio).filter(
+                    CitaServicio.fecha_servicio == str(dia_sig),
+                    CitaServicio.estado != "cancelada"
+                ).all()
+
+                if len(citas_día) >= 1:
+                    dia_sig += timedelta(days=1)
+                    continue
+
+                # Calcular horarios bloqueados considerando duración
+                horarios_bloq = set()
+                for cita in citas_día:
+                    hora_inicio = int(cita.hora_servicio.split(":")[0])
+                    duracion = cita.tiempo_servicio or 2
+                    for i in range(duracion):
+                        hora_bloq = hora_inicio + i
+                        if hora_bloq < 18:
+                            horarios_bloq.add(f"{hora_bloq:02d}:00")
+
+                primer_horario = next(
+                    (h for h in horarios_disponibles if h not in horarios_bloq),
+                    None
+                )
+                if primer_horario:
+                    fecha_disponible = dia_sig
+                    break  # encontró, sale del loop
+
+                dia_sig += timedelta(days=1)
+
 
             if primer_horario:
-                texto_respuesta = f"Excelente {cotizacion.nombre_cliente}, su cotización ha sido aceptada. El primer horario disponible para realizar el trabajo es mañana {mañana.strftime('%d/%m/%Y')} a las {primer_horario}. Para confirmar responda CONFIRMO."
+                cotizacion.hora_propuesta = primer_horario
+                cotizacion.fecha_propuesta = str(fecha_disponible)
+                db.commit()
+                texto_respuesta = f"Excelente {cotizacion.nombre_cliente}, su cotización ha sido aceptada. El primer horario disponible para realizar el trabajo es mañana {fecha_disponible.strftime('%d/%m/%Y')} a las {primer_horario}. Para confirmar responda CONFIRMO."
             else:
-                texto_respuesta = f"Excelente {cotizacion.nombre_cliente}, su cotización ha sido aceptada. Lamentablemente no tenemos horarios disponibles mañana. Le contactaremos para agendar."
+                texto_respuesta = f"Excelente {cotizacion.nombre_cliente}, su cotización ha sido aceptada. Por el momento no tenemos horarios disponibles en los próximos 30 días. Le contactaremos para agendar."
 
             db.add(Historial(numero=numero, role="user", contenido=Body))
             db.add(Historial(numero=numero, role="assistant", contenido=texto_respuesta))
@@ -171,40 +205,28 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
         
     # CONFIRMO
     if Body.strip().upper() == "CONFIRMO":
-        cotizacion = db.query(Cotizacion).filter(
+        cotizacion = db.query(Cotizacion).filter( #Devuelve la 1° cotización filtrada con los sig parámetros:
             Cotizacion.numero == numero,
             Cotizacion.estado == "aceptada"
         ).order_by(Cotizacion.fecha.desc()).first()
 
         if cotizacion:
-            mañana = (datetime.now() + timedelta(days=1)).date()
-            horarios_disponibles = ["09:00", "11:00", "13:00", "16:00", "18:00"]
-
-            citas_mañana = db.query(CitaServicio).filter(
-                CitaServicio.fecha_servicio == str(mañana),
-                CitaServicio.estado != "cancelada"
-            ).all()
-
-            horas_ocupadas = [c.hora_servicio for c in citas_mañana]
-            primer_horario = next(
-                (h for h in horarios_disponibles if h not in horas_ocupadas),
-                None
-            )
+            primer_horario = cotizacion.hora_propuesta
+            fecha_disponible = cotizacion.fecha_propuesta
 
             if primer_horario:
-                # Obtener dirección de la visita correspondiente
-                visita = db.query(Visitas).filter_by(id=cotizacion.visita_id).first()
+                visita = db.query(Visitas).filter_by(id=cotizacion.visita_id).first() # Obtener dirección de la visita correspondiente
                 direccion = visita.direccion if visita else ""
-                tiempo_servicio = cotizacion.tiempo_servicio if cotizacion.tiempo_servicio else 1
-                # Crear cita de servicio
-                cita = CitaServicio(
+                tiempo_servicio = cotizacion.tiempo_servicio if cotizacion.tiempo_servicio else 2
+                
+                cita = CitaServicio( # Crear cita de servicio
                     numero=numero,
                     nombre_cliente=cotizacion.nombre_cliente,
                     direccion=direccion,
                     descripcion=cotizacion.descripcion,
                     precio=cotizacion.precio,
                     tiempo_servicio = tiempo_servicio,
-                    fecha_servicio=str(mañana),
+                    fecha_servicio=str(fecha_disponible),
                     hora_servicio=primer_horario,
                     estado="pendiente",
                     cotizacion_id=cotizacion.id
@@ -224,7 +246,7 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
 
                 link = crear_link_pago(pago, f"s_{cita.id}")
 
-                texto_respuesta = f"Su cita ha sido agendada para mañana {mañana.strftime('%d/%m/%Y')} a las {primer_horario}. Para confirmarla realice el pago de ${cotizacion.precio} MXN: {link}"
+                texto_respuesta = f"Su cita ha sido agendada para mañana {fecha_disponible} a las {primer_horario}. Para confirmarla realice el pago de ${cotizacion.precio} MXN: {link}"
 
                 db.add(Historial(numero=numero, role="user", contenido=Body))
                 db.add(Historial(numero=numero, role="assistant", contenido=texto_respuesta))
@@ -238,7 +260,7 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
             else:
                 db.close()
                 twiml = MessagingResponse()
-                twiml.message("Lo sentimos, no hay horarios disponibles mañana. Si tiene alguna pregunta contáctenos al 9992717117")
+                twiml.message("Lo sentimos, no hay horarios disponibles. Si tiene alguna pregunta contáctenos al 9992717117")
                 return Response(content=str(twiml), media_type="application/xml")
 
         else:

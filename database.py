@@ -50,6 +50,8 @@ class Cotizacion(Base):
     estado = Column(String(20), default="enviada")  # enviada, aceptada, rechazada
     fecha = Column(DateTime(timezone=True), default=datetime.now())
     tiempo_servicio = Column(Integer, default=1)
+    fecha_propuesta = Column(String(20)) # fecha propuesta
+    hora_propuesta = Column(String(10))  # hora propuesta
     visita_id = Column(Integer, ForeignKey("visitas.id"))
 
 class CitaServicio(Base):
@@ -61,7 +63,7 @@ class CitaServicio(Base):
     direccion = Column(Text)
     descripcion = Column(Text)          # el trabajo a realizar
     precio = Column(Integer)            # precio de la cotización aceptada
-    tiempo_servicio = Column(Integer, default=1)
+    tiempo_servicio = Column(Integer, default=2)
     fecha_servicio = Column(String(20)) # fecha acordada
     hora_servicio = Column(String(10))  # hora acordada
     estado = Column(String(20), default="pendiente")  # pendiente, confirmada, completada, cancelada
