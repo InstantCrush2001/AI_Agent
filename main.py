@@ -54,7 +54,7 @@ def construir_system_prompt():
     for v in visitas_mañana:
         agenda_mañana.append({
             "tipo": "visita",
-            "hora": v.hora_visita,
+            "hora": v.hora_visita.strftime("%H:%M") if v.hora_visita else None,
             "id": v.id,
             "estado": v.estado,
         })
@@ -64,7 +64,7 @@ def construir_system_prompt():
         duracion = v.tiempo_servicio or 2
         agenda_mañana.append({
             "tipo": "servicio",
-            "hora": hora_inicio,
+            "hora": hora_inicio.strftime("%H:%M") if hora_inicio else None,
             "id": v.id,
             "estado": v.estado,
         })
@@ -72,7 +72,7 @@ def construir_system_prompt():
             hora_bloqueada = (datetime.combine(mañana, hora_inicio) + timedelta(hours=i)).time()
             agenda_mañana.append({
                 "tipo": "bloqueado",
-                "hora": hora_bloqueada,
+                "hora": hora_bloqueada.strftime("%H:%M"),
                 "id": v.id,
                 "estado": "ocupado",
             })
