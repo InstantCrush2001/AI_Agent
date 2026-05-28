@@ -43,7 +43,7 @@ def construir_system_prompt():
         Visitas.estado != "cancelada"
     ).all()
     servicios_mañana = db.query(CitaServicio).filter(
-        CitaServicio.fecha_servicio == str(mañana),
+        CitaServicio.fecha_servicio == mañana,
         CitaServicio.estado != "cancelada"
     ).all()
     db.close()
@@ -66,6 +66,9 @@ def construir_system_prompt():
             "estado": v.estado,
         })
     agenda_mañana = sorted(agenda_mañana, key=lambda x: x["hora"] or "99:99") # Ordenar por hora
+    print(f"Buscando agenda para: {mañana}")
+    print(f"Visitas encontradas: {len(visitas_mañana)}")
+    print(f"Servicios encontrados: {len(servicios_mañana)}")
 
     return f"""Eres el asistente virtual de OSORIO MANTENIMIENTO, un gestor de citas para realizar trabajos de mantenimiento.
 
