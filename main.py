@@ -88,7 +88,7 @@ def construir_system_prompt():
 
 Hoy es {fecha_hoy}
 Tipo de servicios brindados:{servicios_texto}
-AGENDA DE MAÑANA: {agenda_mañana}
+HORARIOS NO DISPONIBLES: {agenda_mañana}
 
 
 Tu trabajo es:
@@ -110,7 +110,8 @@ Reglas importantes:
 - Cuando el cliente confirme su intención de recibir la visita, preguntar los siguientes datos de contacto:
     - Nombre
     - Dirección de la visita
-- Y proponer el 1° horario disponible del día siguiente. 
+- Y proponer el 1° horario disponible del día siguiente.
+- Los horarios que aparecen en AGENDA DE MAÑANA están ocupados y NO deben ofrecerse. 
 - Las visitas se agendan en los siguientes horarios de lunes a viernes: 9am - 11am - 1pm - 4 pm - 6pm | los sábados: 9am - 11am - 1pm. Los domingos no laboramos.
 - La agenda del día es privada, no dar detalles. Sólo trabajar con el horario elegido.
 - Si el cliente propone una hora de visita entre las enlistadas arriba, proponer el hora más cercano
