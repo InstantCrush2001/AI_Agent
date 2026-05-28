@@ -85,7 +85,7 @@ with tab1:
                 itinerario.append((t, "visita", v))
             for c in citas_por_dia.get(dia, []):
                 try:
-                    t = datetime.strptime(c.hora_servicio, "%H:%M").time() if c.hora_servicio else datetime.min.time()
+                    t = c.hora_servicio if c.hora_servicio else datetime.min.time()
                 except ValueError:
                     t = datetime.min.time()
                 itinerario.append((t, "cita", c))
@@ -114,7 +114,7 @@ with tab1:
                                     db.commit()
                                     st.rerun()
                         if item.estado == "pendiente":
-                            if st.button("Cancelar", key=f"xv_{item.id}"):
+                            if st.button("Cancelar", key=f"xc_{item.id}"):
                                 item.estado = "cancelada"
                                 db.commit()
                                 st.rerun()
