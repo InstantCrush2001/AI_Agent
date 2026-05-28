@@ -38,7 +38,7 @@ def construir_system_prompt():
     servicios_texto = SERVICIOS_TEXTO
 
     # Obtener visitas y servicios del día siguiente
-    mañana = (ahora_mexico + timedelta(days=1)).date()
+    mañana = (ahora_mexico + timedelta(days=2)).date()
     visitas_mañana = db.query(Visitas).filter(
         Visitas.fecha_visita == mañana,
         Visitas.estado != "cancelada"
