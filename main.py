@@ -46,22 +46,33 @@ def construir_system_prompt():
         CitaServicio.fecha_servicio == str(mañana),
         CitaServicio.estado != "cancelada"
     ).all()
-
     db.close()
 
-    # Construir texto de horarios ocupados
-    horarios_ocupados = "\n".join(
-        f"- {v.hora_visita}"
-        for v in visitas_mañana
-    ) or "Ninguno"
+    # Construir texto de horarios ocupados del día siguiente:
+    agenda_mañana = []
+    for v in visitas_mañana:
+        agenda_mañana.append({
+            "tipo": "visita",
+            "hora": v.hora_visita,
+            "id": v.id,
+            "estado": v.estado,
+        })
+
+    for v in servicios_mañana:
+        agenda_mañana.append({
+            "tipo": "servicio",
+            "hora": v.hora_servicio,
+            "id": v.id,
+            "estado": v.estado,
+        })
+    agenda_mañana = sorted(agenda_mañana, key=lambda x: x["hora"] or "99:99") # Ordenar por hora
 
     return f"""Eres el asistente virtual de OSORIO MANTENIMIENTO, un gestor de citas para realizar trabajos de mantenimiento.
 
 Hoy es {fecha_hoy}
 Tipo de servicios brindados:{servicios_texto}
-AGENDA DE MAÑANA ({mañana}):
-Horarios ocupados:
-{horarios_ocupados}
+AGENDA DE MAÑANA: {agenda_mañana}
+
 
 Tu trabajo es:
 1. Siempre es posible atenderles en persona siempre y cuando la visita esté pagada, no importa que sea un servicio no enlistado
@@ -279,7 +290,7 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
                 texto_respuesta = f"Con gusto {cotizacion.nombre_cliente}. El siguiente horario disponible es el {fecha_disponible.strftime('%d/%m/%Y')} a las {primer_horario}. Para confirmar responda CONFIRMO."
             else:
                 texto_respuesta = "Lo sentimos, no tenemos más horarios disponibles en los próximos 15 días. Le contactaremos para agendar."
-        else:  # ← falta esto
+        else:
             db.close()
             twiml = MessagingResponse()
             twiml.message("No encontramos una cotización activa. Si tiene alguna pregunta contáctenos al 9992717117")
