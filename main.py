@@ -60,12 +60,23 @@ def construir_system_prompt():
         })
 
     for v in servicios_mañana:
+        hora_inicio = v.hora_servicio
+        duracion = v.tiempo_servicio or 2
         agenda_mañana.append({
             "tipo": "servicio",
-            "hora": v.hora_servicio,
+            "hora": hora_inicio,
             "id": v.id,
             "estado": v.estado,
         })
+        for i in range(1, duracion): # Agregar las horas bloqueadas por duración
+            hora_bloqueada = (datetime.combine(mañana, hora_inicio) + timedelta(hours=i)).time()
+            agenda_mañana.append({
+                "tipo": "bloqueado",
+                "hora": hora_bloqueada,
+                "id": v.id,
+                "estado": "ocupado",
+            })
+
     agenda_mañana = sorted(agenda_mañana, key=lambda x: x["hora"] or "99:99") # Ordenar por hora
     print(f"Buscando agenda para: {mañana}")
     print(f"Visitas encontradas: {len(visitas_mañana)}")
@@ -130,7 +141,7 @@ def buscar_horario_disponible(db, fecha_inicio):
             continue
 
         citas_día = db.query(CitaServicio).filter( #Añade todas las citas de servicio del día actual a la variable
-                CitaServicio.fecha_servicio == str(dia_sig),
+                CitaServicio.fecha_servicio == dia_sig,
                 CitaServicio.estado != "cancelada" #Menos si está cancelada
         ).all()
 
@@ -141,7 +152,7 @@ def buscar_horario_disponible(db, fecha_inicio):
         # Calcular horarios bloqueados considerando duración
         horarios_bloq = set()
         for cita in citas_día: #Por cada cita:
-            hora_inicio = int(cita.hora_servicio.split(":")[0]) # Toma el primer elemento de la hora_servicio / 9:00 --> Toma "9"
+            hora_inicio = cita.hora_servicio.hour # Toma el primer elemento de la hora_servicio / 9:00 --> Toma "9"
             duracion = cita.tiempo_servicio or 2 # Carga la duración del trabajo si hay, sino considera 2 horas
             for i in range(duracion): # por cada hora de la duración:
                 hora_bloq = hora_inicio + i # le suma el valor actual la hora de inicio. Se debe sumar cada hora individual dentro del rango de servicio
