@@ -64,8 +64,8 @@ class CitaServicio(Base):
     descripcion = Column(Text)          # el trabajo a realizar
     precio = Column(Integer)            # precio de la cotización aceptada
     tiempo_servicio = Column(Integer, default=2)
-    fecha_servicio = Column(String(20)) # fecha acordada
-    hora_servicio = Column(String(10))  # hora acordada
+    fecha_servicio = Column(Date, default=date.today)
+    hora_servicio = Column(Time)
     estado = Column(String(20), default="pendiente")  # pendiente, confirmada, completada, cancelada
     cotizacion_id = Column(Integer, ForeignKey("cotizaciones.id"))  # referencia a la cotización
     fecha = Column(DateTime(timezone=True), default=datetime.now())
