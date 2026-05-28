@@ -49,9 +49,9 @@ class Cotizacion(Base):
     precio = Column(Integer)           # precio estimado
     estado = Column(String(20), default="enviada")  # enviada, aceptada, rechazada
     fecha = Column(DateTime(timezone=True), default=datetime.now())
-    tiempo_servicio = Column(Integer, default=1)
-    fecha_propuesta = Column(String(20)) # fecha propuesta
-    hora_propuesta = Column(String(10))  # hora propuesta
+    tiempo_servicio = Column(Integer, default=2)
+    fecha_propuesta = Column(Date, default=date.today)
+    hora_propuesta = Column(Time)
     visita_id = Column(Integer, ForeignKey("visitas.id"))
 
 class CitaServicio(Base):
