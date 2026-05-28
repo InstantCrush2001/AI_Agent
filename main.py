@@ -81,6 +81,8 @@ def construir_system_prompt():
     print(f"Buscando agenda para: {mañana}")
     print(f"Visitas encontradas: {len(visitas_mañana)}")
     print(f"Servicios encontrados: {len(servicios_mañana)}")
+    for i in agenda_mañana:
+        print(f"DEBUG - {i['hora']}")
 
     return f"""Eres el asistente virtual de OSORIO MANTENIMIENTO, un gestor de citas para realizar trabajos de mantenimiento.
 
