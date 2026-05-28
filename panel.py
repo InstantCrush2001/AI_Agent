@@ -58,7 +58,7 @@ with tab1:
     for c in citas:
         if c.fecha_servicio:
             try:
-                fecha_c = datetime.strptime(c.fecha_servicio, "%Y-%m-%d").date()
+                fecha_c = c.fecha_servicio
                 citas_por_dia[fecha_c].append(c)
             except ValueError:
                 pass
