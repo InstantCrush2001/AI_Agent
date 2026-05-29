@@ -121,7 +121,7 @@ Reglas importantes:
     - Nombre
     - Dirección de la visita
 - Y proponer el 1° horario disponible del día siguiente.
-- Los horarios que aparecen en horarios_bloqueados_texto están ocupados y NO deben ofrecerse. 
+- Los horarios que aparecen en horarios_bloqueados_texto están ocupados y NO deben ofrecerse. Si todos los horarios están ocupados, agenda para el día laboral más cercano
 - Las visitas se agendan en los siguientes horarios de lunes a viernes: 9am - 11am - 1pm - 4 pm - 6pm | los sábados: 9am - 11am - 1pm. Los domingos no laboramos.
 - La agenda del día es privada, no dar detalles. Sólo trabajar con el horario elegido.
 - Si el cliente propone una hora de visita entre las enlistadas arriba, proponer el hora más cercano
