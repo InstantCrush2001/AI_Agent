@@ -90,8 +90,8 @@ def construir_system_prompt():
     else:
         horarios_bloqueados_texto = "Ninguno"
 
-    for i in horarios_bloqueados_texto:
-        print(f" DEBUG - {i}")
+
+    print(horarios_bloqueados_texto)
 
     return f"""Eres el asistente virtual de OSORIO MANTENIMIENTO, un gestor de citas para realizar trabajos de mantenimiento.
 
