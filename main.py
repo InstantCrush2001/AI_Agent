@@ -13,7 +13,6 @@ from zoneinfo import ZoneInfo
 import json
 
 load_dotenv()
-
 app = FastAPI()
 crear_tablas()  # crea las tablas al arrancar el servidor
 cliente = Anthropic()
@@ -21,15 +20,10 @@ historial = []
 MEXICO_TZ = ZoneInfo("America/Mexico_City")
 ahora_mexico = datetime.now(MEXICO_TZ)
 
-SERVICIOS_TEXTO = """
-
-"""
-
 def construir_system_prompt():
     db = SessionLocal()
     # fecha_hoy = (ahora_mexico - timedelta(days=1)).strftime("%d/%m/%Y") 
     fecha_hoy = ahora_mexico.strftime("%d/%m/%Y") 
-    servicios_texto = SERVICIOS_TEXTO
 
     # Obtener visitas y servicios del día siguiente
     mañana = (ahora_mexico + timedelta(days=1)).date()
@@ -77,11 +71,10 @@ def construir_system_prompt():
     if mañana.weekday == 6: # Domingo
         horarios_disponibles = []
         disponibilidad_texto = "Mañana es domingo, no laboramos. Revisa la agenda del proximo lunes."
-    elif mañana.weekday() == 5: # Sábado
-        horarios_disponibles = ["09:00", "11:00", "13:00"]
+    # elif mañana.weekday() == 5: # Sábado
+    #     horarios_disponibles = ["09:00", "11:00", "13:00"]
     else:
         horarios_disponibles = ["09:00", "11:00", "13:00", "16:00", "18:00"]
-
     
     if mañana.weekday() != 6: # Solo calcular disponibilidad si no es domingo
         horas_ocupadas = {item['hora'] for item in agenda_mañana}
@@ -91,7 +84,8 @@ def construir_system_prompt():
             disponibilidad_texto = f"Horarios disponibles mañana: {', '.join(horarios_libres)}"
         else:
             disponibilidad_texto = "La agenda de mañana está completamente llena. No hay horarios disponibles. Ofrece el siguiente día laboral"
-
+    
+    print(disponibilidad_texto)
     return f"""Eres el asistente virtual de OSORIO MANTENIMIENTO, un gestor de citas para realizar trabajos de mantenimiento.
 
 Hoy es {fecha_hoy}
@@ -140,7 +134,7 @@ CITA:{{"nombre": "Juan García", "direccion": "Calle 60 123", "descripción": "j
 def buscar_horario_disponible(db, fecha_inicio):
 # Buscar si hay espacio disponible para cita de servicio
     print("DEBUG - entró a buscar_horario")
-    horarios_disponibles = ["09:00", "11:00", "13:00"]#, "16:00", "18:00"]
+    horarios_disponibles = ["09:00", "11:00", "13:00"] #, "16:00", "18:00"]
     dia_sig = fecha_inicio
     primer_horario = None
     fecha_disponible = None
