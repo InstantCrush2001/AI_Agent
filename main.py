@@ -33,7 +33,7 @@ SERVICIOS_TEXTO = """
 
 def construir_system_prompt():
     db = SessionLocal()
-    fecha_hoy = (ahora_mexico + timedelta(days=1)).strftime("%d/%m/%Y") 
+    fecha_hoy = (ahora_mexico - timedelta(days=1)).strftime("%d/%m/%Y") 
     # fecha_hoy = ahora_mexico.strftime("%d/%m/%Y") 
     servicios_texto = SERVICIOS_TEXTO
 
