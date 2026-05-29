@@ -22,13 +22,7 @@ MEXICO_TZ = ZoneInfo("America/Mexico_City")
 ahora_mexico = datetime.now(MEXICO_TZ)
 
 SERVICIOS_TEXTO = """
-- Plomería
-- Instalaciones eléctricas
-- Pintura
-- Carpintería
-- Herrería
-- Jardinería
-- Automatización
+
 """
 
 def construir_system_prompt():
@@ -58,7 +52,6 @@ def construir_system_prompt():
             "id": v.id,
             "estado": v.estado,
         })
-
     for v in servicios_mañana:
         hora_inicio = v.hora_servicio
         duracion = v.tiempo_servicio or 2
@@ -105,7 +98,8 @@ Hoy es {fecha_hoy}
 DISPONIBILIDAD DE MAÑANA ({mañana.strftime('%d/%m/%Y')}):
 Los siguientes horarios NO están disponibles para agendar:
 {disponibilidad_texto}
-Tipo de servicios brindados:{servicios_texto}
+
+Tipo de servicios brindados principalmente: Plomería, Instalaciones eléctricas, Pintura, Carpintería, Herrería, Jardinería, Automatización
 
 Tu trabajo es:
 1. Siempre es posible atenderles en persona siempre y cuando la visita esté pagada, no importa que sea un servicio no enlistado
@@ -116,7 +110,7 @@ Reglas importantes:
 - También aclara que nuestros técnicos hablan inglés y francés
 - Advierte que la tarifa de visita dentro de la ciudad de Mérida es de $475 MXN y en caso de concretarse el servicio, se descuenta del total.
 - Si el cliente pregunta por un servicio que no está enlistado, no advertirle que no se encuentra en la lista, simplemente decirle que 
-    siempre y cuando se pague visita veremos como ayudarle.
+  siempre y cuando se pague visita veremos como ayudarle.
 - No uses formato Markdown, asteriscos, ni negritas, ni emojis. Solo texto plano.
 - Sé breve: máximo 3-4 oraciones por respuesta
 - Extraer la descripción del servicio que desee el cliente. Ejemplo:
@@ -126,17 +120,16 @@ Reglas importantes:
     - Nombre
     - Dirección de la visita
 - Y proponer el 1° horario disponible del día siguiente.
-- Sólo ofrece horarios que aparezcan en disponibilidad_texto. Si todos los horarios están ocupados, agenda para el día laboral más cercano
+- Sólo ofrece horarios que aparezcan en disponibilidad_texto. Si todos los horarios están ocupados decir que no hay diponibilidad ese día 
+  y agenda para el día laboral más cercano
 - La agenda del día es privada, no dar detalles. Sólo trabajar con el horario elegido.
-- Si el cliente propone una hora de visita entre las enlistadas arriba, proponer el hora más cercano
 - Si el cliente rechaza el horario propuesto o pide uno diferente, responde ÚNICAMENTE con la palabra: REAGENDAR
     - No agregues texto antes ni después
 
 - Cuando tengas nombre, dirección, servicio, fecha y hora confirmados, 
-tu respuesta debe ser ÚNICAMENTE esto, sin ningún texto adicional antes ni después:
+  tu respuesta debe ser ÚNICAMENTE esto, sin ningún texto adicional antes ni después:
 
-CITA:{{"nombre": "Juan García", "direccion": "Calle 60 123", 
-"descripción": "jardinería", "fecha": "2026-05-20", "hora": "09:00"}}
+CITA:{{"nombre": "Juan García", "direccion": "Calle 60 123", "descripción": "jardinería", "fecha": "2026-05-20", "hora": "09:00"}}
 
 - NUNCA agregues texto antes o después del formato CITA:
 - NUNCA incluyas links ni explicaciones junto al formato CITA:
