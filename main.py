@@ -79,26 +79,32 @@ def construir_system_prompt():
 
     agenda_mañana = sorted(agenda_mañana, key=lambda x: x["hora"] or "99:99") # Ordenar por hora
     print(f"Buscando agenda para: {mañana}")
-    print(f"Visitas encontradas: {len(visitas_mañana)}")
-    print(f"Servicios encontrados: {len(servicios_mañana)}")
+    print(f"Visitas: {len(visitas_mañana)} /// Servicios: {len(servicios_mañana)}")
     
-    if agenda_mañana:
-        horarios_bloqueados_texto = "\n".join(
-            f"- {item['hora']} ({item['tipo']})"
-            for item in agenda_mañana
-        )
+    if mañana.weekday == 6: # Domingo
+        horarios_disponibles = []
+        disponibilidad_texto = "Mañana es domingo, no laboramos. Revisa la agenda del proximo lunes."
+    elif mañana.weekday() == 5: # Sábado
+        horarios_disponibles = ["09:00", "11:00", "13:00"]
     else:
-        horarios_bloqueados_texto = "Ninguno"
+        horarios_disponibles = ["09:00", "11:00", "13:00", "16:00", "18:00"]
 
+    
+    if mañana.weekday() != 6: # Solo calcular disponibilidad si no es domingo
+        horas_ocupadas = {item['hora'] for item in agenda_mañana}
+        horarios_libres = [h for h in horarios_disponibles if h not in horas_ocupadas]
 
-    print(horarios_bloqueados_texto)
+        if horarios_libres:
+            disponibilidad_texto = f"Horarios disponibles mañana: {', '.join(horarios_libres)}"
+        else:
+            disponibilidad_texto = "La agenda de mañana está completamente llena. No hay horarios disponibles. Ofrece el siguiente día laboral"
 
     return f"""Eres el asistente virtual de OSORIO MANTENIMIENTO, un gestor de citas para realizar trabajos de mantenimiento.
 
 Hoy es {fecha_hoy}
-AGENDA DE MAÑANA ({mañana.strftime('%d/%m/%Y')}):
+DISPONIBILIDAD DE MAÑANA ({mañana.strftime('%d/%m/%Y')}):
 Los siguientes horarios NO están disponibles para agendar:
-{horarios_bloqueados_texto}
+{disponibilidad_texto}
 Tipo de servicios brindados:{servicios_texto}
 
 Tu trabajo es:
@@ -111,8 +117,7 @@ Reglas importantes:
 - Advierte que la tarifa de visita dentro de la ciudad de Mérida es de $475 MXN y en caso de concretarse el servicio, se descuenta del total.
 - Si el cliente pregunta por un servicio que no está enlistado, no advertirle que no se encuentra en la lista, simplemente decirle que 
     siempre y cuando se pague visita veremos como ayudarle.
-- No usar emojis
-- No uses formato Markdown, asteriscos, ni negritas. Solo texto plano.
+- No uses formato Markdown, asteriscos, ni negritas, ni emojis. Solo texto plano.
 - Sé breve: máximo 3-4 oraciones por respuesta
 - Extraer la descripción del servicio que desee el cliente. Ejemplo:
     - necesito un sistema de riego
@@ -121,12 +126,11 @@ Reglas importantes:
     - Nombre
     - Dirección de la visita
 - Y proponer el 1° horario disponible del día siguiente.
-- Los horarios que aparecen en horarios_bloqueados_texto están ocupados y NO deben ofrecerse. Si todos los horarios están ocupados, agenda para el día laboral más cercano
-- Las visitas se agendan en los siguientes horarios de lunes a viernes: 9am - 11am - 1pm - 4 pm - 6pm | los sábados: 9am - 11am - 1pm. Los domingos no laboramos.
+- Sólo ofrece horarios que aparezcan en disponibilidad_texto. Si todos los horarios están ocupados, agenda para el día laboral más cercano
 - La agenda del día es privada, no dar detalles. Sólo trabajar con el horario elegido.
 - Si el cliente propone una hora de visita entre las enlistadas arriba, proponer el hora más cercano
 - Si el cliente rechaza el horario propuesto o pide uno diferente, responde ÚNICAMENTE con la palabra: REAGENDAR
-- No agregues texto antes ni después
+    - No agregues texto antes ni después
 
 - Cuando tengas nombre, dirección, servicio, fecha y hora confirmados, 
 tu respuesta debe ser ÚNICAMENTE esto, sin ningún texto adicional antes ni después:
