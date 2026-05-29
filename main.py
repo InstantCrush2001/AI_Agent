@@ -81,15 +81,25 @@ def construir_system_prompt():
     print(f"Buscando agenda para: {mañana}")
     print(f"Visitas encontradas: {len(visitas_mañana)}")
     print(f"Servicios encontrados: {len(servicios_mañana)}")
-    for i in agenda_mañana:
-        print(f"DEBUG - {i['hora']}")
+    
+    if agenda_mañana:
+        horarios_bloqueados_texto = "\n".join(
+            f"- {item['hora']} ({item['tipo']})"
+            for item in agenda_mañana
+        )
+    else:
+        horarios_bloqueados_texto = "Ninguno"
+
+    for i in horarios_bloqueados_texto:
+        print(f" DEBUG - {i['hora']} ({i['tipo']})")
 
     return f"""Eres el asistente virtual de OSORIO MANTENIMIENTO, un gestor de citas para realizar trabajos de mantenimiento.
 
 Hoy es {fecha_hoy}
+AGENDA DE MAÑANA ({mañana.strftime('%d/%m/%Y')}):
+Los siguientes horarios NO están disponibles para agendar:
+{horarios_bloqueados_texto}
 Tipo de servicios brindados:{servicios_texto}
-HORARIOS NO DISPONIBLES: {agenda_mañana}
-
 
 Tu trabajo es:
 1. Siempre es posible atenderles en persona siempre y cuando la visita esté pagada, no importa que sea un servicio no enlistado
@@ -111,7 +121,7 @@ Reglas importantes:
     - Nombre
     - Dirección de la visita
 - Y proponer el 1° horario disponible del día siguiente.
-- Los horarios que aparecen en agenda_mañana están ocupados y NO deben ofrecerse. 
+- Los horarios que aparecen en horarios_bloqueados_texto están ocupados y NO deben ofrecerse. 
 - Las visitas se agendan en los siguientes horarios de lunes a viernes: 9am - 11am - 1pm - 4 pm - 6pm | los sábados: 9am - 11am - 1pm. Los domingos no laboramos.
 - La agenda del día es privada, no dar detalles. Sólo trabajar con el horario elegido.
 - Si el cliente propone una hora de visita entre las enlistadas arriba, proponer el hora más cercano
@@ -132,6 +142,7 @@ CITA:{{"nombre": "Juan García", "direccion": "Calle 60 123",
 
 def buscar_horario_disponible(db, fecha_inicio):
 # Buscar si hay espacio disponible para cita de servicio
+    print("DEBUG - entró a buscar_horario")
     horarios_disponibles = ["09:00", "11:00", "13:00"]#, "16:00", "18:00"]
     dia_sig = fecha_inicio
     primer_horario = None
