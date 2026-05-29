@@ -33,12 +33,12 @@ SERVICIOS_TEXTO = """
 
 def construir_system_prompt():
     db = SessionLocal()
-    fecha_hoy = (ahora_mexico - timedelta(days=1)).strftime("%d/%m/%Y") 
-    # fecha_hoy = ahora_mexico.strftime("%d/%m/%Y") 
+    # fecha_hoy = (ahora_mexico - timedelta(days=1)).strftime("%d/%m/%Y") 
+    fecha_hoy = ahora_mexico.strftime("%d/%m/%Y") 
     servicios_texto = SERVICIOS_TEXTO
 
     # Obtener visitas y servicios del día siguiente
-    mañana = (ahora_mexico + timedelta(days=2)).date()
+    mañana = (ahora_mexico + timedelta(days=1)).date()
     visitas_mañana = db.query(Visitas).filter(
         Visitas.fecha_visita == mañana,
         Visitas.estado != "cancelada"
