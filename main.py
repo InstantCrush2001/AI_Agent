@@ -18,11 +18,10 @@ crear_tablas()  # crea las tablas al arrancar el servidor
 cliente = Anthropic()
 historial = []
 MEXICO_TZ = ZoneInfo("America/Mexico_City")
-ahora_mexico = datetime.now(MEXICO_TZ)
+ahora_mexico = datetime.now(MEXICO_TZ) + timedelta(days=3)
 
 def construir_system_prompt():
     db = SessionLocal()
-    # fecha_hoy = (ahora_mexico - timedelta(days=1)).strftime("%d/%m/%Y") 
     fecha_hoy = ahora_mexico.strftime("%d/%m/%Y") 
 
     # Obtener 1° horario disponible a partir del día siguiente
@@ -40,7 +39,6 @@ def construir_system_prompt():
     return f"""Eres el asistente virtual de OSORIO MANTENIMIENTO, un gestor de citas para realizar trabajos de mantenimiento.
 
 Hoy es {fecha_hoy}
-DISPONIBILIDAD DE MAÑANA ({mañana.strftime('%d/%m/%Y')}):
 1° horario disponible para agendar visitas: {disponibilidad_visita}
     - Cuando el cliente quiera agendar una visita, solo ofrece el horario indicado arriba.
     - No inventes horarios que no estén en la disponibilidad.
@@ -88,8 +86,6 @@ CITA:{{"nombre": "Juan García", "direccion": "Calle 60 123", "descripción": "j
 
 def buscar_horario_disponible(db, fecha_inicio, isServ = True):
 # Buscar si hay espacio disponible para cita de servicio
-    print("DEBUG - entró a buscar_horario")
-    horarios_disponibles = ["09:00", "11:00", "13:00"] #, "16:00", "18:00"]
     dia_actual = fecha_inicio
     primer_horario = None
     fecha_disponible = None
@@ -142,8 +138,8 @@ def buscar_horario_disponible(db, fecha_inicio, isServ = True):
             break  # encontró fecha disponible, sale del loop
 
         dia_actual += timedelta(days=1) # Si no encontró espacio en día actual, pasa al día siguiente
-    print(f"Buscando agenda para: {dia_actual}")
-    print(f"Visitas: {len(visitas_dia)} /// Servicios: {len(servicios_dia)}")
+        print(f"Buscando agenda para: {dia_actual}")
+        print(f"Visitas: {len(visitas_dia)} /// Servicios: {len(servicios_dia)}")
     return primer_horario, fecha_disponible
 
 # Le dice a FastAPI qué forma tiene el JSON que va a recibir
@@ -174,7 +170,7 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
 
         if cotizacion: 
             cotizacion.estado = "aceptada" # Cambia estado de cotización
-            dos_dias = (datetime.now(MEXICO_TZ) + timedelta(days=2)).date()
+            dos_dias = (ahora_mexico + timedelta(days=2)).date()
             primer_horario, fecha_disponible = buscar_horario_disponible(db=db, fecha_inicio=dos_dias) #Busca horario disponible dos días posteriores
 
             if primer_horario: # Si se acepta la cotización, se actualiza la DB y se envia mensaje para confirmar horario
