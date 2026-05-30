@@ -25,73 +25,25 @@ def construir_system_prompt():
     # fecha_hoy = (ahora_mexico - timedelta(days=1)).strftime("%d/%m/%Y") 
     fecha_hoy = ahora_mexico.strftime("%d/%m/%Y") 
 
-    # Obtener visitas y servicios del día siguiente
+    # Obtener 1° horario disponible a partir del día siguiente
     mañana = (ahora_mexico + timedelta(days=1)).date()
-    visitas_mañana = db.query(Visitas).filter(
-        Visitas.fecha_visita == mañana,
-        Visitas.estado != "cancelada"
-    ).all()
-    servicios_mañana = db.query(CitaServicio).filter(
-        CitaServicio.fecha_servicio == mañana,
-        CitaServicio.estado != "cancelada"
-    ).all()
-    db.close()
+    horario_visita, fecha_visita = buscar_horario_disponible(db=db, fecha_inicio=mañana, isServ=False)
 
-    # Construir texto de horarios ocupados del día siguiente:
-    agenda_mañana = []
-    for v in visitas_mañana:
-        agenda_mañana.append({
-            "tipo": "visita",
-            "hora": v.hora_visita.strftime("%H:%M") if v.hora_visita else None,
-            "id": v.id,
-            "estado": v.estado,
-        })
-    for v in servicios_mañana:
-        hora_inicio = v.hora_servicio
-        duracion = v.tiempo_servicio or 2
-        agenda_mañana.append({
-            "tipo": "servicio",
-            "hora": hora_inicio.strftime("%H:%M") if hora_inicio else None,
-            "id": v.id,
-            "estado": v.estado,
-        })
-        for i in range(1, duracion): # Agregar las horas bloqueadas por duración
-            hora_bloqueada = (datetime.combine(mañana, hora_inicio) + timedelta(hours=i)).time()
-            agenda_mañana.append({
-                "tipo": "bloqueado",
-                "hora": hora_bloqueada.strftime("%H:%M"),
-                "id": v.id,
-                "estado": "ocupado",
-            })
-
-    agenda_mañana = sorted(agenda_mañana, key=lambda x: x["hora"] or "99:99") # Ordenar por hora
-    print(f"Buscando agenda para: {mañana}")
-    print(f"Visitas: {len(visitas_mañana)} /// Servicios: {len(servicios_mañana)}")
-    
-    if mañana.weekday == 6: # Domingo
-        horarios_disponibles = []
-        disponibilidad_texto = "Mañana es domingo, no laboramos. Revisa la agenda del proximo lunes."
-    # elif mañana.weekday() == 5: # Sábado
-    #     horarios_disponibles = ["09:00", "11:00", "13:00"]
+    if horario_visita:
+        disponibilidad_visita = f"El próximo horario disponible para una visita de diagnóstico es el {fecha_visita.strftime('%d/%m/%Y')} a las {horario_visita}."
     else:
-        horarios_disponibles = ["09:00", "11:00", "13:00", "16:00", "18:00"]
-    
-    if mañana.weekday() != 6: # Solo calcular disponibilidad si no es domingo
-        horas_ocupadas = {item['hora'] for item in agenda_mañana}
-        horarios_libres = [h for h in horarios_disponibles if h not in horas_ocupadas]
+        disponibilidad_visita = "No hay horarios disponibles para visitas en los próximos 15 días."
 
-        if horarios_libres:
-            disponibilidad_texto = f"Horarios disponibles mañana: {', '.join(horarios_libres)}"
-        else:
-            disponibilidad_texto = "La agenda de mañana está completamente llena. No hay horarios disponibles. Ofrece el siguiente día laboral"
-    
-    print(disponibilidad_texto)
+    db.close() 
+    print(f" DEBUG - {disponibilidad_visita}")
+
     return f"""Eres el asistente virtual de OSORIO MANTENIMIENTO, un gestor de citas para realizar trabajos de mantenimiento.
 
 Hoy es {fecha_hoy}
 DISPONIBILIDAD DE MAÑANA ({mañana.strftime('%d/%m/%Y')}):
-Los siguientes horarios NO están disponibles para agendar:
-{disponibilidad_texto}
+1° horario disponible para agendar visitas: {disponibilidad_visita}
+    - Cuando el cliente quiera agendar una visita, solo ofrece el horario indicado arriba.
+    - No inventes horarios que no estén en la disponibilidad.
 
 Tipo de servicios brindados principalmente: Plomería, Instalaciones eléctricas, Pintura, Carpintería, Herrería, Jardinería, Automatización
 
@@ -115,7 +67,10 @@ Reglas importantes:
     - Dirección de la visita
 - Y proponer el 1° horario disponible del día siguiente.
 - Sólo ofrece horarios que aparezcan en disponibilidad_texto. Si todos los horarios están ocupados decir que no hay diponibilidad ese día 
-  y agenda para el día laboral más cercano
+  y agenda para el día laboral más cercano.
+- De lunes a viernes trabajamos con los siguientes horarios: 9am - 11am - 1pm - 4pm - 6 pm
+- Los sábados trabajamos con los siguientes horarios: 9am - 11am - 1pm
+- Los domingos no laboramos
 - La agenda del día es privada, no dar detalles. Sólo trabajar con el horario elegido.
 - Si el cliente rechaza el horario propuesto o pide uno diferente, responde ÚNICAMENTE con la palabra: REAGENDAR
     - No agregues texto antes ni después
@@ -131,32 +86,42 @@ CITA:{{"nombre": "Juan García", "direccion": "Calle 60 123", "descripción": "j
 - No uses valores null o vacíos
 """
 
-def buscar_horario_disponible(db, fecha_inicio):
+def buscar_horario_disponible(db, fecha_inicio, isServ = True):
 # Buscar si hay espacio disponible para cita de servicio
     print("DEBUG - entró a buscar_horario")
     horarios_disponibles = ["09:00", "11:00", "13:00"] #, "16:00", "18:00"]
-    dia_sig = fecha_inicio
+    dia_actual = fecha_inicio
     primer_horario = None
     fecha_disponible = None
 
     for _ in range(15):  # busca hasta 15 días adelante
     # Saltar domingos
-        if dia_sig.weekday() == 6:
-            dia_sig += timedelta(days=1)
+        if dia_actual.weekday() == 6:
+            dia_actual += timedelta(days=1)
             continue
+        if dia_actual.weekday() == 5 or isServ == True:# Sábado
+            horarios_disponibles = ["09:00", "11:00", "13:00"]
+        else: # Lunes a viernes
+            horarios_disponibles = ["09:00", "11:00", "13:00", "16:00", "18:00"]
 
-        citas_día = db.query(CitaServicio).filter( #Añade todas las citas de servicio del día actual a la variable
-                CitaServicio.fecha_servicio == dia_sig,
-                CitaServicio.estado != "cancelada" #Menos si está cancelada
+        servicios_dia = db.query(CitaServicio).filter( #Añade todas las citas de servicio del día actual a la variable
+        CitaServicio.fecha_servicio == dia_actual,
+        CitaServicio.estado != "cancelada" #Menos si está cancelada
+        ).all()
+        visitas_dia = db.query(Visitas).filter(
+        Visitas.fecha_visita == dia_actual,
+        Visitas.estado != "cancelada"
         ).all()
 
-        if len(citas_día) >= 1: # Si hay más de una cita en día actual, cambia de día y empieza de nuevo
-            dia_sig += timedelta(days=1)
-            continue
+        if isServ and len(servicios_dia) >= 1: # Si hay más de una cita en día actual, cambia de día y empieza de nuevo
+                dia_actual += timedelta(days=1)
+                continue
 
         # Calcular horarios bloqueados considerando duración
         horarios_bloq = set()
-        for cita in citas_día: #Por cada cita:
+
+        # Bloquear por servicios existentes
+        for cita in servicios_dia: #Por cada cita:
             hora_inicio = cita.hora_servicio.hour # Toma el primer elemento de la hora_servicio / 9:00 --> Toma "9"
             duracion = cita.tiempo_servicio or 2 # Carga la duración del trabajo si hay, sino considera 2 horas
             for i in range(duracion): # por cada hora de la duración:
@@ -164,15 +129,21 @@ def buscar_horario_disponible(db, fecha_inicio):
                 if hora_bloq < 18: # si hora_bloqueada no excede las 18:00, añadir al set
                     horarios_bloq.add(f"{hora_bloq:02d}:00") 
 
+        for visita in visitas_dia: # Bloquear por visitas existentes
+            if visita.hora_visita:
+                horarios_bloq.add(visita.hora_visita.strftime("%H:%M"))
+
         primer_horario = next( #Devuelve el 1° valor que encuentre disponible
             (h for h in horarios_disponibles if h not in horarios_bloq), # Itera sobre los horarios disponibles que no estén en horarios bloqueados
             None # si no, devuelve None
         )
         if primer_horario:
-            fecha_disponible = dia_sig
+            fecha_disponible = dia_actual
             break  # encontró fecha disponible, sale del loop
 
-        dia_sig += timedelta(days=1) # Si no encontró espacio en día actual, pasa al día siguiente
+        dia_actual += timedelta(days=1) # Si no encontró espacio en día actual, pasa al día siguiente
+    print(f"Buscando agenda para: {dia_actual}")
+    print(f"Visitas: {len(visitas_dia)} /// Servicios: {len(servicios_dia)}")
     return primer_horario, fecha_disponible
 
 # Le dice a FastAPI qué forma tiene el JSON que va a recibir
