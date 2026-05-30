@@ -18,7 +18,7 @@ crear_tablas()  # crea las tablas al arrancar el servidor
 cliente = Anthropic()
 historial = []
 MEXICO_TZ = ZoneInfo("America/Mexico_City")
-ahora_mexico = datetime.now(MEXICO_TZ) + timedelta(days=3)
+ahora_mexico = datetime.now(MEXICO_TZ)# + timedelta(days=3)
 
 def construir_system_prompt():
     db = SessionLocal()
