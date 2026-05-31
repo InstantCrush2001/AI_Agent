@@ -20,6 +20,9 @@ historial = []
 MEXICO_TZ = ZoneInfo("America/Mexico_City")
 ahora_mexico = datetime.now(MEXICO_TZ)# + timedelta(days=3)
 
+dias = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
+meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
+
 def construir_system_prompt():
     db = SessionLocal()
     fecha_hoy = ahora_mexico.strftime("%d/%m/%Y") 
@@ -27,9 +30,10 @@ def construir_system_prompt():
     # Obtener 1° horario disponible a partir del día siguiente
     mañana = (ahora_mexico + timedelta(days=1)).date()
     horario_visita, fecha_visita = buscar_horario_disponible(db=db, fecha_inicio=mañana, isServ=False)
-
+    
     if horario_visita:
-        disponibilidad_visita = f"El próximo horario disponible para una visita de diagnóstico es el {fecha_visita.strftime('%d/%m/%Y')} a las {horario_visita}."
+        fecha_str = f"{dias[fecha_visita.weekday()]} {fecha_visita.day} de {meses[fecha_visita.month - 1]}"
+        disponibilidad_visita = f"El próximo horario disponible para una visita de diagnóstico es el {fecha_str} a las {horario_visita}."
     else:
         disponibilidad_visita = "No hay horarios disponibles para visitas en los próximos 15 días."
 
@@ -70,9 +74,6 @@ Reglas importantes:
 - Los sábados trabajamos con los siguientes horarios: 9am - 11am - 1pm
 - Los domingos no laboramos
 - La agenda del día es privada, no dar detalles. Sólo trabajar con el horario elegido.
-- Si el cliente rechaza el horario propuesto o pide uno diferente, responde ÚNICAMENTE con la palabra: REAGENDAR
-    - No agregues texto antes ni después
-
 - Cuando tengas nombre, dirección, servicio, fecha y hora confirmados, 
   tu respuesta debe ser ÚNICAMENTE esto, sin ningún texto adicional antes ni después:
 
@@ -177,7 +178,7 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
                 cotizacion.hora_propuesta = primer_horario
                 cotizacion.fecha_propuesta = str(fecha_disponible)
                 db.commit()
-                texto_respuesta = f"Excelente {cotizacion.nombre_cliente}, su cotización ha sido aceptada. El primer horario disponible para realizar el trabajo es el {fecha_disponible.strftime('%d/%m/%Y')} a las {primer_horario}. Para confirmar responda CONFIRMO."
+                texto_respuesta = f"Excelente {cotizacion.nombre_cliente}, su cotización ha sido aceptada. El primer horario disponible para realizar el trabajo es el {fecha_disponible.strftime('%d/%m/%Y')} a las {primer_horario}. Para confirmar responda CONFIRMO. Para sugerirle otro horario responda REAGENDAR"
             else: # Si no se acepta el horario, se cierra la conexión a DB y se envía mensaje de error.
                 texto_respuesta = f"Excelente {cotizacion.nombre_cliente}, su cotización ha sido aceptada. Por el momento no tenemos horarios disponibles en los próximos 15 días. Le contactaremos para agendar."
 
@@ -237,7 +238,7 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
 
                 # Llamar a función generadora de link de pago y enviar mensaje con ese contenido
                 link = crear_link_pago(pago, f"s_{cita.id}") 
-                texto_respuesta = f"Su cita ha sido agendada para mañana {fecha_disponible} a las {primer_horario}. Para confirmarla realice el pago de ${cotizacion.precio} MXN: {link}"
+                texto_respuesta = f"Su cita ha sido agendada para {fecha_disponible} a las {primer_horario}. Para confirmarla realice el pago de ${cotizacion.precio} MXN: {link}"
 
                 db.add(Historial(numero=numero, role="user", contenido=Body))
                 db.add(Historial(numero=numero, role="assistant", contenido=texto_respuesta))
@@ -274,13 +275,32 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
             if primer_horario:
                 cotizacion.hora_propuesta = primer_horario
                 cotizacion.fecha_propuesta = str(fecha_disponible)
-                texto_respuesta = f"Con gusto {cotizacion.nombre_cliente}. El siguiente horario disponible es el {fecha_disponible.strftime('%d/%m/%Y')} a las {primer_horario}. Para confirmar responda CONFIRMO."
+                fecha_str = f"{dias[fecha_disponible.weekday()]} {fecha_disponible.day} de {meses[fecha_disponible.month - 1]}"
+                texto_respuesta = f"Con gusto {cotizacion.nombre_cliente}. El siguiente horario disponible es el {fecha_str} a las {primer_horario}. Para confirmar responda CONFIRMO. Para sugerirle otro horario responda REAGENDAR"
             else:
                 texto_respuesta = "Lo sentimos, no tenemos más horarios disponibles en los próximos 15 días. Le contactaremos para agendar."
+        
+        visita = db.query(Visitas).filter(
+            Visitas.numero == numero,
+            Visitas.estado.in_(["pendiente", "pagado"])
+        ).order_by(Visitas.fecha.desc()).first()
+
+        if visita:
+            fecha_actual = visita.fecha_visita
+            dia_siguiente = fecha_actual + timedelta(days=1)
+            primer_horario, fecha_disponible = buscar_horario_disponible(db=db, fecha_inicio=dia_siguiente, isServ=False)
+
+            if primer_horario:
+                visita.fecha_visita = fecha_disponible
+                visita.hora_visita = datetime.strptime(primer_horario, "%H:%M").time()
+                texto_respuesta = f"Con gusto {visita.nombre_cliente}. El siguiente horario disponible para su visita es el {fecha_disponible.strftime('%d/%m/%Y')} a las {primer_horario}. Para confirmar responda CONFIRMO. Para sugerirle otro horario responda REAGENDAR."
+            else:
+                texto_respuesta = "Lo sentimos, no tenemos más horarios disponibles en los próximos 15 días. Le contactaremos para agendar."
+
         else:
             db.close()
             twiml = MessagingResponse()
-            twiml.message("No encontramos una cotización activa. Si tiene alguna pregunta contáctenos al 9992717117")
+            twiml.message("No encontramos una cotización ni visita activa. Si tiene alguna pregunta contáctenos al 9992717117")
             return Response(content=str(twiml), media_type="application/xml")
     
         db.add(Historial(numero=numero, role="user", contenido=Body))
