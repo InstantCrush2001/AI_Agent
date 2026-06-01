@@ -26,7 +26,7 @@ meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto
 def construir_system_prompt():
     db = SessionLocal()
     fecha_hoy = ahora_mexico.strftime("%d/%m/%Y") 
-
+    agenda_hoy_texto = agenda_hoy(db=db, hoy= fecha_hoy)
     # Obtener 1° horario disponible a partir del día siguiente
     mañana = (ahora_mexico + timedelta(days=1)).date()
     horario_visita, fecha_visita = buscar_horario_disponible(db=db, fecha_inicio=mañana, isServ=False)
@@ -46,6 +46,7 @@ def construir_system_prompt():
     return f"""Eres el asistente virtual de OSORIO MANTENIMIENTO, un gestor de citas para realizar trabajos de mantenimiento.
 
 Hoy es {fecha_hoy}
+AGENDA DE HOY {agenda_hoy_texto}
 1° horario disponible para agendar visitas: {disponibilidad_visita}
     - Cuando el cliente quiera agendar una visita, solo ofrece el horario indicado arriba.
     - No inventes horarios que no estén en la disponibilidad.
@@ -87,6 +88,37 @@ CITA:{{"nombre": "Juan García", "direccion": "Calle 60 123", "descripción": "j
 - Si el formato CITA: está en tu respuesta, no debe haber nada más
 - No uses valores null o vacíos
 """
+def agenda_hoy(db, hoy):
+    servicios_hoy = db.query(CitaServicio).filter( #Añade todas las citas de servicio del día actual a la variable
+        CitaServicio.fecha_servicio == hoy,
+        CitaServicio.estado != "cancelada" 
+        ).all()
+    visitas_hoy = db.query(Visitas).filter(
+        Visitas.fecha_visita == hoy,
+        Visitas.estado != "cancelada"
+        ).all()
+    bloqueados_hoy = db.query(HorarioBloqueado).filter(
+        HorarioBloqueado.fecha == hoy
+        ).all()
+    
+    agenda_hoy = []
+    for v in visitas_hoy:
+        if v.hora_visita:
+            agenda_hoy.append(f"{v.hora_visita.strftime('%H:%M')} - visita ({v.nombre_cliente})")
+    for s in servicios_hoy:
+        if s.hora_servicio:
+            agenda_hoy.append(f"{s.hora_servicio.strftime('%H:%M')} - servicio ({s.nombre_cliente})")
+    for b in bloqueados_hoy:
+        agenda_hoy.append(f"{b.hora} - bloqueado")
+
+    agenda_hoy = sorted(agenda_hoy)
+
+    if agenda_hoy:
+        agenda_hoy_texto = "\n".join(agenda_hoy)
+    else:
+        agenda_hoy_texto = "Sin eventos hoy"
+    
+    return agenda_hoy_texto
 
 def buscar_horario_disponible(db, fecha_inicio, isServ = True):
 # Buscar si hay espacio disponible para cita de servicio

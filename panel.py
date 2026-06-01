@@ -48,13 +48,18 @@ with tab1:
 
     visitas = db.query(Visitas).order_by(Visitas.hora_visita).all()
     citas = db.query(CitaServicio).order_by(CitaServicio.hora_servicio).all()
+    bloqueados = db.query(HorarioBloqueado).order_by(HorarioBloqueado.fecha,HorarioBloqueado.hora).all()
 
     visitas_por_dia = defaultdict(list)
+    bloq_por_dia = defaultdict(list)
+    citas_por_dia = defaultdict(list)
+
     for v in visitas:
         if v.fecha_visita:
             visitas_por_dia[v.fecha_visita].append(v)
-
-    citas_por_dia = defaultdict(list)
+    for b in bloqueados:
+        if b.fecha:
+            bloq_por_dia[b.fecha].append(b)
     for c in citas:
         if c.fecha_servicio:
             try:
@@ -83,6 +88,9 @@ with tab1:
             for v in visitas_por_dia.get(dia, []):
                 t = v.hora_visita or datetime.min.time()
                 itinerario.append((t, "visita", v))
+            for b in bloq_por_dia.get(dia, []):
+                t = datetime.strptime(b.hora, "%H:%M").time()
+                itinerario.append((t,"bloqueado",b))
             for c in citas_por_dia.get(dia, []):
                 try:
                     t = c.hora_servicio if c.hora_servicio else datetime.min.time()
@@ -118,6 +126,12 @@ with tab1:
                                 item.estado = "cancelada"
                                 db.commit()
                                 st.rerun()
+                    elif tipo == "bloqueado":
+                        st.markdown(f"**BLOQUEADO · {hora_str}**")
+                        if st.button("Desbloquear", key=f"del_b_{item.id}"):
+                            db.delete(item)
+                            db.commit()
+                            st.rerun()
                     else:
                         st.markdown(f"**SERVICIO · {hora_str}**")
                         st.caption(item.nombre_cliente)
@@ -159,22 +173,6 @@ with tab1:
             st.success(f"Horario {hora_bloqueo} del {fecha_bloqueo.strftime('%d/%m/%Y')} bloqueado")
             st.rerun()
 
-    # Lista de bloqueos existentes
-    bloqueados = db.query(HorarioBloqueado).order_by(
-        HorarioBloqueado.fecha,
-        HorarioBloqueado.hora
-    ).all()
-
-    if bloqueados:
-        for b in bloqueados:
-            col1, col2 = st.columns([4, 1])
-            with col1:
-                st.caption(f"{b.fecha.strftime('%d/%m/%Y')} — {b.hora}")
-            with col2:
-                if st.button("✗", key=f"del_b_{b.id}"):
-                    db.delete(b)
-                    db.commit()
-                    st.rerun()
 # TAB 2: COTIZACIONES 
 with tab2:
     st.subheader("Cotizaciones")
