@@ -133,7 +133,8 @@ with tab1:
                             db.commit()
                             st.rerun()
                     else:
-                        st.markdown(f"**SERVICIO · {hora_str}**")
+                        hora_fin = (datetime.combine(dia, t) + timedelta(hours=item.tiempo_servicio or 2)).strftime("%H:%M")
+                        st.markdown(f"**SERVICIO · {hora_str}-{hora_fin}**")
                         st.caption(item.nombre_cliente)
                         st.caption(f"{ESTADO_ICON.get(item.estado, '')} {item.estado}")
                         if item.estado == "pagado":
@@ -159,12 +160,37 @@ with tab1:
     col1, col2, col3 = st.columns([2, 2, 1])
     with col1:
         fecha_bloqueo = st.date_input("Fecha", key="fecha_bloqueo")
+
+    HORAS_OPCIONES = ["09:00", "11:00", "13:00", "16:00", "18:00"]
+
+    ocupadas_bloqueo = set()
+    for v in visitas:
+        if v.fecha_visita == fecha_bloqueo and v.estado != "cancelada" and v.hora_visita:
+            ocupadas_bloqueo.add(v.hora_visita.strftime("%H:%M"))
+    for c in citas:
+        if c.fecha_servicio == fecha_bloqueo and c.estado != "cancelada" and c.hora_servicio:
+            hora_inicio = c.hora_servicio.hour
+            duracion = c.tiempo_servicio or 2
+            for i in range(duracion):
+                hora_bloq = hora_inicio + i
+                if hora_bloq < 18:
+                    ocupadas_bloqueo.add(f"{hora_bloq:02d}:00")
+    for b in bloqueados:
+        if b.fecha == fecha_bloqueo:
+            ocupadas_bloqueo.add(b.hora)
+
+    horas_libres = [h for h in HORAS_OPCIONES if h not in ocupadas_bloqueo]
+
     with col2:
-        hora_bloqueo = st.selectbox("Horario", ["09:00", "11:00", "13:00", "16:00", "18:00"], key="hora_bloqueo")
+        if horas_libres:
+            hora_bloqueo = st.selectbox("Horario", horas_libres, key="hora_bloqueo")
+        else:
+            st.warning("Todos los horarios de este día están ocupados.")
+            hora_bloqueo = None
     with col3:
-        st.write("")  # espaciado para alinear el botón
         st.write("")
-        if st.button("Bloquear"):
+        st.write("")
+        if hora_bloqueo and st.button("Bloquear"):
             db.add(HorarioBloqueado(
                 fecha=fecha_bloqueo,
                 hora=hora_bloqueo
