@@ -32,8 +32,11 @@ def construir_system_prompt():
     horario_visita, fecha_visita = buscar_horario_disponible(db=db, fecha_inicio=mañana, isServ=False)
     
     if horario_visita:
-        fecha_str = f"{dias[fecha_visita.weekday()]} {fecha_visita.day} de {meses[fecha_visita.month - 1]}"
-        disponibilidad_visita = f"El próximo horario disponible para una visita de diagnóstico es el {fecha_str} a las {horario_visita}."
+        if fecha_visita == mañana:
+            fecha_str = f"mañana {dias[fecha_visita.weekday()]} {fecha_visita.day} de {meses[fecha_visita.month - 1]}"
+        else:
+            fecha_str = f"el {dias[fecha_visita.weekday()]} {fecha_visita.day} de {meses[fecha_visita.month - 1]}"
+        disponibilidad_visita = f"El próximo horario disponible para una visita de diagnóstico es {fecha_str} a las {horario_visita}."
     else:
         disponibilidad_visita = "No hay horarios disponibles para visitas en los próximos 15 días."
 
@@ -222,7 +225,7 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
                     tiempo_servicio = tiempo_servicio,
                     fecha_servicio=str(fecha_disponible),
                     hora_servicio=primer_horario,
-                    estado="pendiente",
+                    estado="pago pendiente",
                     cotizacion_id=cotizacion.id
                 )
                 db.add(cita)
@@ -238,7 +241,7 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
 
                 # Llamar a función generadora de link de pago y enviar mensaje con ese contenido
                 link = crear_link_pago(pago, f"s_{cita.id}") 
-                texto_respuesta = f"Su cita ha sido agendada para {fecha_disponible} a las {primer_horario}. Para confirmarla realice el pago de ${cotizacion.precio} MXN: {link}"
+                texto_respuesta = f"Su cita ha sido agendada para el {fecha_disponible} a las {primer_horario}. Para confirmarla realice el pago de ${cotizacion.precio} MXN: {link}"
 
                 db.add(Historial(numero=numero, role="user", contenido=Body))
                 db.add(Historial(numero=numero, role="assistant", contenido=texto_respuesta))
@@ -282,7 +285,7 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
         
         visita = db.query(Visitas).filter(
             Visitas.numero == numero,
-            Visitas.estado.in_(["pendiente", "pagado"])
+            Visitas.estado.in_(["pago pendiente", "pagado"])
         ).order_by(Visitas.fecha.desc()).first()
 
         if visita:
@@ -360,7 +363,7 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
                     descripcion = descripcion,
                     fecha_visita = fecha_cita,
                     hora_visita = hora_cita,
-                    estado="pendiente"
+                    estado="pago pendiente"
                 )
                 db.add(cita)
                 db.flush() 
