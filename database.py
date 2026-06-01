@@ -70,6 +70,13 @@ class CitaServicio(Base):
     cotizacion_id = Column(Integer, ForeignKey("cotizaciones.id"))  # referencia a la cotización
     fecha = Column(DateTime(timezone=True), default=datetime.now())
 
+class HorarioBloqueado(Base):
+    __tablename__ = "horarios_bloqueados"
+
+    id = Column(Integer, primary_key=True)
+    fecha = Column(Date)
+    hora = Column(String(10))  # formato "09:00"
+
 # Crea las tablas en PostgreSQL si no existen
 def crear_tablas():
     Base.metadata.create_all(engine)

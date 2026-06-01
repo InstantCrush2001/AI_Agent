@@ -4,7 +4,7 @@ import os
 from collections import defaultdict
 
 load_dotenv()
-from database import SessionLocal, Visitas, CitaServicio, Cotizacion, Historial
+from database import SessionLocal, Visitas, CitaServicio, Cotizacion, Historial, HorarioBloqueado
 from datetime import datetime, timedelta, timezone
 
 MEXICO_TZ = timezone(timedelta(hours=-6))
@@ -139,7 +139,42 @@ with tab1:
                                 item.estado = "cancelada"
                                 db.commit()
                                 st.rerun()
+    st.divider()
+    st.subheader("Bloquear horario")
 
+    col1, col2, col3 = st.columns([2, 2, 1])
+    with col1:
+        fecha_bloqueo = st.date_input("Fecha", key="fecha_bloqueo")
+    with col2:
+        hora_bloqueo = st.selectbox("Horario", ["09:00", "11:00", "13:00", "16:00", "18:00"], key="hora_bloqueo")
+    with col3:
+        st.write("")  # espaciado para alinear el botón
+        st.write("")
+        if st.button("Bloquear"):
+            db.add(HorarioBloqueado(
+                fecha=fecha_bloqueo,
+                hora=hora_bloqueo
+            ))
+            db.commit()
+            st.success(f"Horario {hora_bloqueo} del {fecha_bloqueo.strftime('%d/%m/%Y')} bloqueado")
+            st.rerun()
+
+    # Lista de bloqueos existentes
+    bloqueados = db.query(HorarioBloqueado).order_by(
+        HorarioBloqueado.fecha,
+        HorarioBloqueado.hora
+    ).all()
+
+    if bloqueados:
+        for b in bloqueados:
+            col1, col2 = st.columns([4, 1])
+            with col1:
+                st.caption(f"{b.fecha.strftime('%d/%m/%Y')} — {b.hora}")
+            with col2:
+                if st.button("✗", key=f"del_b_{b.id}"):
+                    db.delete(b)
+                    db.commit()
+                    st.rerun()
 # TAB 2: COTIZACIONES 
 with tab2:
     st.subheader("Cotizaciones")

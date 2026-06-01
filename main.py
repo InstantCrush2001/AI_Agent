@@ -4,7 +4,7 @@ from anthropic import Anthropic
 from dotenv import load_dotenv
 from twilio.twiml.messaging_response import MessagingResponse
 from twilio.rest import Client as TwilioClient
-from database import SessionLocal, Historial, Visitas, Cotizacion, CitaServicio, crear_tablas
+from database import SessionLocal, Historial, Visitas, Cotizacion, CitaServicio, HorarioBloqueado, crear_tablas
 import mercadopago
 import os
 from pagos import crear_link_pago
@@ -99,7 +99,7 @@ def buscar_horario_disponible(db, fecha_inicio, isServ = True):
         if dia_actual.weekday() == 6:
             dia_actual += timedelta(days=1)
             continue
-        if dia_actual.weekday() == 5 or isServ == True:# Sábado
+        if dia_actual.weekday() == 5 or isServ == True:# Sábado o servicio
             horarios_disponibles = ["09:00", "11:00", "13:00"]
         else: # Lunes a viernes
             horarios_disponibles = ["09:00", "11:00", "13:00", "16:00", "18:00"]
@@ -111,6 +111,9 @@ def buscar_horario_disponible(db, fecha_inicio, isServ = True):
         visitas_dia = db.query(Visitas).filter(
         Visitas.fecha_visita == dia_actual,
         Visitas.estado != "cancelada"
+        ).all()
+        bloqueados_dia = db.query(HorarioBloqueado).filter(
+        HorarioBloqueado.fecha == dia_actual
         ).all()
 
         if isServ and len(servicios_dia) >= 1: # Si hay más de una cita en día actual, cambia de día y empieza de nuevo
@@ -132,6 +135,9 @@ def buscar_horario_disponible(db, fecha_inicio, isServ = True):
         for visita in visitas_dia: # Bloquear por visitas existentes
             if visita.hora_visita:
                 horarios_bloq.add(visita.hora_visita.strftime("%H:%M"))
+        
+        for b in bloqueados_dia: # Agregar horarios bloqueados manualmente
+            horarios_bloq.add(b.hora)
 
         primer_horario = next( #Devuelve el 1° valor que encuentre disponible
             (h for h in horarios_disponibles if h not in horarios_bloq), # Itera sobre los horarios disponibles que no estén en horarios bloqueados
@@ -267,7 +273,8 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
     if Body.strip().upper() == "REAGENDAR": # Detectar la intención de reagendar
         cotizacion = db.query(Cotizacion).filter( # Devuelve la 1° cotización filtrada con los sig parámetros:
             Cotizacion.numero == numero,
-            Cotizacion.estado == "aceptada"
+            Cotizacion.estado == "aceptada",
+            Cotizacion.fecha_propuesta > ahora_mexico.strftime("%Y-%m-%d") 
         ).order_by(Cotizacion.fecha.desc()).first()
 
         if cotizacion:
@@ -285,7 +292,8 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
         
         visita = db.query(Visitas).filter(
             Visitas.numero == numero,
-            Visitas.estado.in_(["pago pendiente", "pagado"])
+            Visitas.estado.in_(["pago pendiente", "pagado"]),
+            Visitas.fecha_visita > ahora_mexico.strftime("%Y-%m-%d") 
         ).order_by(Visitas.fecha.desc()).first()
 
         if visita:
@@ -303,7 +311,7 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
         else:
             db.close()
             twiml = MessagingResponse()
-            twiml.message("No encontramos una cotización ni visita activa. Si tiene alguna pregunta contáctenos al 9992717117")
+            twiml.message("No encontramos cotización ni visita activa. Si tiene alguna pregunta contáctenos al 9992717117")
             return Response(content=str(twiml), media_type="application/xml")
     
         db.add(Historial(numero=numero, role="user", contenido=Body))
