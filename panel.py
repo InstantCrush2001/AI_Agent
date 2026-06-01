@@ -64,7 +64,7 @@ with tab1:
                 pass
 
     ESTADO_ICON = {
-        "pendiente": "🟡",
+        "pago pendiente": "🟡",
         "pagado": "🔵",
         "completada": "🟢",
         "cancelada": "🔴",
@@ -113,7 +113,7 @@ with tab1:
                                     item.estado = "cancelada"
                                     db.commit()
                                     st.rerun()
-                        if item.estado == "pendiente":
+                        if item.estado == " pago pendiente":
                             if st.button("Cancelar", key=f"xc_{item.id}"):
                                 item.estado = "cancelada"
                                 db.commit()
@@ -134,7 +134,7 @@ with tab1:
                                     item.estado = "cancelada"
                                     db.commit()
                                     st.rerun()
-                        if item.estado == "pendiente":
+                        if item.estado == "pago pendiente":
                             if st.button("Cancelar", key=f"xv_{item.id}"):
                                 item.estado = "cancelada"
                                 db.commit()
