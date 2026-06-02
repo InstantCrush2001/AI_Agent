@@ -20,6 +20,22 @@ tab1, tab2, tab3 = st.tabs([
     "Cotizaciones",
     "Historial de Conversaciones"
 ])
+@st.dialog("Detalles del evento")
+def mostrar_detalle(tipo, item, dia):
+    if tipo == "visita":
+        st.write(f"**Cliente:** {item.nombre_cliente}")
+        st.write(f"**Dirección:** {item.direccion}")
+        st.write(f"**Hora:** {item.hora_visita.strftime('%H:%M') if item.hora_visita else '—'}")
+        st.write(f"**Estado:** {item.estado}")
+        st.write(f"**Descripción:** {item.descripcion}")
+    elif tipo == "cita":
+        hora_fin = (datetime.combine(dia, item.hora_servicio) + timedelta(hours=item.tiempo_servicio or 2)).strftime("%H:%M")
+        st.write(f"**Cliente:** {item.nombre_cliente}")
+        st.write(f"**Dirección:** {item.direccion}")
+        st.write(f"**Horario:** {item.hora_servicio.strftime('%H:%M')} - {hora_fin}")
+        st.write(f"**Descripción:** {item.descripcion}")
+        st.write(f"**Precio:** ${item.precio} MXN")
+        st.write(f"**Estado:** {item.estado}")
 
 # TAB 1: AGENDA SEMANAL
 with tab1:
@@ -108,6 +124,9 @@ with tab1:
                     if tipo == "visita":
                         st.markdown(f"**VISITA · {hora_str}**")
                         st.caption(item.nombre_cliente)
+                        if st.button("Detalles", key=f"btn_visita_{item.id}"):
+                            mostrar_detalle("visita", item, dia)
+                        st.divider()
                         st.caption(f"{ESTADO_ICON.get(item.estado, '')} {item.estado}")
                         if item.estado == "pagado":
                             b1, b2 = st.columns(2)
@@ -136,6 +155,9 @@ with tab1:
                         hora_fin = (datetime.combine(dia, t) + timedelta(hours=item.tiempo_servicio or 2)).strftime("%H:%M")
                         st.markdown(f"**SERVICIO · {hora_str}-{hora_fin}**")
                         st.caption(item.nombre_cliente)
+                        if st.button(f"Detalles", key=f"btn_cita_{item.id}"):
+                            mostrar_detalle("cita", item, dia)
+                        st.divider()
                         st.caption(f"{ESTADO_ICON.get(item.estado, '')} {item.estado}")
                         if item.estado == "pagado":
                             b1, b2 = st.columns(2)
@@ -156,7 +178,6 @@ with tab1:
                                 st.rerun()
     st.divider()
     st.subheader("Bloquear horario")
-
     col1, col2, col3 = st.columns([2, 2, 1])
     with col1:
         fecha_bloqueo = st.date_input("Fecha", key="fecha_bloqueo")

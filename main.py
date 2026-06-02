@@ -46,9 +46,9 @@ def construir_system_prompt():
     return f"""Eres el asistente virtual de OSORIO MANTENIMIENTO, un gestor de citas para realizar trabajos de mantenimiento.
 
 Hoy es {fecha_hoy}
-AGENDA DE HOY {agenda_hoy_texto}
+AGENDA DE HOY: {agenda_hoy_texto}
 1° horario disponible para agendar visitas: {disponibilidad_visita}
-    - Cuando el cliente quiera agendar una visita, solo ofrece el horario indicado arriba.
+    - Cuando el cliente quiera agendar una visita, ofrece los horarios indicados en la agenda del día.
     - No inventes horarios que no estén en la disponibilidad.
 
 Tipo de servicios brindados principalmente: Plomería, Instalaciones eléctricas, Pintura, Carpintería, Herrería, Jardinería, Automatización
@@ -513,7 +513,7 @@ async def crear_cotizacion(data: CotizacionInput):
     twilio_client.messages.create(
         from_=os.environ.get("TWILIO_WA_NUMBER"),
         to=data.numero,
-        body=f"Hola {data.nombre_cliente}, le compartimos la cotización para el trabajo solicitado:\n\n{data.descripcion}\n\nPrecio estimado: ${data.precio} MXN\n\nPara aceptar y agendar su visita responda ACEPTO. Para cualquier duda estamos a sus órdenes."
+        body=f"Hola {data.nombre_cliente}, le compartimos la cotización para el trabajo solicitado:\n\n{data.descripcion}\n\nPrecio estimado: ${data.precio} MXN\n\nPara aceptar y agendar su visita responda ACEPTO. Para cualquier duda estamos a sus órdenes al 9992717117."
     )
 
     db.close()
