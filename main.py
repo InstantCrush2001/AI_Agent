@@ -518,3 +518,14 @@ async def crear_cotizacion(data: CotizacionInput):
 
     db.close()
     return {"status": "cotizacion enviada", "id": cotizacion_id}
+
+@app.get("/whatsapp/meta")
+async def verificar_meta(request: Request):
+    mode = request.query_params.get("hub.mode")
+    token = request.query_params.get("hub.verify_token")
+    challenge = request.query_params.get("hub.challenge")
+    
+    if mode == "subscribe" and token == os.environ.get("META_VERIFY_TOKEN"):
+        return Response(content=challenge, media_type="text/plain")
+    
+    return Response(status_code=403)
