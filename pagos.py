@@ -10,7 +10,7 @@ def crear_link_pago(items: list, orden_id: str) -> str:
         "notification_url": f"{os.environ.get('BASE_URL')}/webhook/mercadopago", # MercadoPago notificará a esta URL cuando el pago sea exitoso
         "external_reference": str(orden_id), # ID de tu pedido para identificarlo cuando llegue la notificación
         "expires": True,
-        "expiration_date_from": datetime.now(),
+        "expiration_date_from": datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000-06:00"),
         "expiration_date_to": (datetime.now() + timedelta(hours=24)).strftime("%Y-%m-%dT%H:%M:%S.000-06:00"),
         "date_of_expiration": (datetime.now() + timedelta(hours=24)).strftime("%Y-%m-%dT%H:%M:%S.000-06:00"),
     }
