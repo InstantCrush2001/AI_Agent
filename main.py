@@ -198,7 +198,7 @@ class CotizacionInput(BaseModel):
     visita_id: int
 
 async def procesar_mensaje(numero: str, Body: str, db) -> str:
-#BLOQUE 1- INTERCEPTAR ACEPTO Y CONFIRMO SIN CLAUDE
+#BLOQUE 1- INTERCEPTAR COMANDOS SIN CLAUDE
     # ACEPTO
     if Body.strip().upper() == "ACEPTO":
         cotizacion = db.query(Cotizacion).filter( # Devuelve la 1° cotización filtrada con los sig parámetros:
@@ -288,7 +288,7 @@ async def procesar_mensaje(numero: str, Body: str, db) -> str:
                 fecha_str = f"{dias[fecha_serv.weekday()]} {fecha_serv.day} de {meses[fecha_serv.month - 1]}"
 
                 if servicio.estado == "pagado":
-                    texto_respuesta = f"Su cita ha sido reagendada para el {fecha_serv} a las {hora_serv}. Hasta pronto"
+                    texto_respuesta = f"Su cita ha sido reagendada para el {fecha_serv} a las {hora_serv}. Hasta pronto!"
                 else:
                     texto_respuesta = f"Su cita ha sido reagendada para el {fecha_serv} a las {hora_serv}. Para confirmarla realice el pago en el link anteriormente enviado"
             
@@ -315,6 +315,8 @@ async def procesar_mensaje(numero: str, Body: str, db) -> str:
                 cotizacion.fecha_propuesta = fecha_disponible
                 fecha_str = f"{dias[fecha_disponible.weekday()]} {fecha_disponible.day} de {meses[fecha_disponible.month - 1]}"
                 texto_respuesta = f"Con gusto {cotizacion.nombre_cliente}. El siguiente horario disponible es el {fecha_str} a las {primer_horario}. Para confirmar responda CONFIRMO. Para sugerirle otro horario responda REAGENDAR"
+                
+            
             else:
                 texto_respuesta = "Lo sentimos, no tenemos más horarios disponibles en los próximos 15 días. Le contactaremos para agendar."
         else:
@@ -334,6 +336,10 @@ async def procesar_mensaje(numero: str, Body: str, db) -> str:
                     servicio.hora_servicio = datetime.strptime(primer_horario, "%H:%M").time()
                     fecha_str = f"{dias[fecha_disponible.weekday()]} {fecha_disponible.day} de {meses[fecha_disponible.month - 1]}"
                     texto_respuesta = f"Con gusto {servicio.nombre_cliente}. El siguiente horario disponible para su servicio es el {fecha_str} a las {primer_horario}. Para confirmar responda CONFIRMO. Para sugerirle otro horario responda REAGENDAR."
+                    
+                    """ if servicio.estado == "pagado" and fecha_servicio == ahora_mexico.date():
+                        mensaje_admin = f"AVISO: {servicio.nombre_cliente} reagendó su servicio pagado para el {fecha_disponible.strftime('%d/%m/%Y')} a las {primer_horario}."
+                        await enviar_whatsapp(os.environ.get("ADMIN_NUMERO"), mensaje_admin) """
                 else:
                     texto_respuesta = "Lo sentimos, no tenemos más horarios disponibles en los próximos 15 días. Le contactaremos para agendar."
             else:
@@ -352,6 +358,10 @@ async def procesar_mensaje(numero: str, Body: str, db) -> str:
                         visita.fecha_visita = fecha_disponible
                         visita.hora_visita = datetime.strptime(primer_horario, "%H:%M").time()
                         texto_respuesta = f"Con gusto {visita.nombre_cliente}. El siguiente horario disponible para su visita es el {fecha_disponible.strftime('%d/%m/%Y')} a las {primer_horario}. Para confirmar responda CONFIRMO. Para sugerirle otro horario responda REAGENDAR."
+                    
+                        """ if visita.estado == "pagado" and visita.fecha_visita == ahora_mexico.date():
+                            mensaje_admin = f"URGENTE: {visita.nombre_cliente} reagendó su visita de HOY para el {fecha_disponible.strftime('%d/%m/%Y')} a las {primer_horario}."
+                            await enviar_whatsapp(os.environ.get("ADMIN_NUMERO"), mensaje_admin) """
                     else:
                         texto_respuesta = "Lo sentimos, no tenemos más horarios disponibles en los próximos 15 días. Le contactaremos para agendar."
                 else:
@@ -362,6 +372,44 @@ async def procesar_mensaje(numero: str, Body: str, db) -> str:
         db.commit()
         return texto_respuesta
             
+    # MOSTRAR AGENDA DEL DÍA PARA ADMIN
+    if Body.strip().upper() == "AGENDA":
+        if numero != os.environ.get("ADMIN_NUMERO"):
+            return None  # ignora si no es el admin, cae al Bloque 2
+        
+        hoy = ahora_mexico.date()
+        
+        visitas_hoy = db.query(Visitas).filter(
+            Visitas.fecha_visita == hoy,
+            Visitas.estado != "cancelada"
+        ).all()
+        
+        servicios_hoy = db.query(CitaServicio).filter(
+            CitaServicio.fecha_servicio == str(hoy),
+            CitaServicio.estado != "cancelada"
+        ).all()
+        
+        if not visitas_hoy and not servicios_hoy:
+            texto_respuesta = f"No hay eventos agendados para hoy {hoy.strftime('%d/%m/%Y')}."
+        else:
+            lineas = [f"Agenda del {hoy.strftime('%d/%m/%Y')}:\n"]
+            
+            for v in visitas_hoy:
+                hora = v.hora_visita.strftime('%H:%M') if v.hora_visita else "—"
+                lineas.append(f"VISITA {hora} — {v.nombre_cliente} — {v.direccion} ({v.estado})")
+            
+            for s in servicios_hoy:
+                hora = s.hora_servicio.strftime('%H:%M') if s.hora_servicio else "—"
+                lineas.append(f"SERVICIO {hora} — {s.nombre_cliente} — {s.direccion} ({s.estado})")
+            
+            lineas.sort()  # ordena por hora
+            texto_respuesta = "\n".join(lineas)
+        
+        db.add(Historial(numero=numero, role="user", contenido=Body))
+        db.add(Historial(numero=numero, role="assistant", contenido=texto_respuesta))
+        db.commit()
+        return texto_respuesta
+
 #BLOQUE 2 - LLAMAR A CLAUDE
     mensajes_db = db.query(Historial).filter( # Recupera el historial de este usuario desde la base de datos
     Historial.numero == numero
@@ -581,7 +629,7 @@ async def enviar_whatsapp_twilio(numero: str, mensaje: str):
 async def enviar_whatsapp_meta(numero: str, mensaje: str):
     numero_limpio = numero.replace("whatsapp:+", "")
     async with httpx.AsyncClient() as client:
-        response = await client.post(
+        await client.post(
             f"https://graph.facebook.com/v18.0/{os.environ.get('META_PHONE_NUMBER_ID')}/messages",
             headers={"Authorization": f"Bearer {os.environ.get('META_ACCESS_TOKEN')}"},
             json={
@@ -591,7 +639,6 @@ async def enviar_whatsapp_meta(numero: str, mensaje: str):
                 "text": {"body": mensaje}
             }
         )
-        print(f"DEBUG META ENVIO - {response.status_code}: {response.text}")
 async def enviar_whatsapp(numero: str, mensaje: str):
     if os.environ.get("CANAL_WA") == "meta":
         await enviar_whatsapp_meta(numero, mensaje)

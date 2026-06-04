@@ -22,6 +22,7 @@ tab1, tab2, tab3 = st.tabs([
 @st.dialog("Detalles del evento")
 def mostrar_detalle(tipo, item, dia):
     if tipo == "visita":
+        st.write(f"**ID:** {item.id}")
         st.write(f"**Cliente:** {item.nombre_cliente}")
         st.write(f"**Dirección:** {item.direccion}")
         st.write(f"**Hora:** {item.hora_visita.strftime('%H:%M') if item.hora_visita else '—'}")
