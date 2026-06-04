@@ -581,7 +581,7 @@ async def enviar_whatsapp_twilio(numero: str, mensaje: str):
 async def enviar_whatsapp_meta(numero: str, mensaje: str):
     numero_limpio = numero.replace("whatsapp:+", "")
     async with httpx.AsyncClient() as client:
-        await client.post(
+        response = await client.post(
             f"https://graph.facebook.com/v18.0/{os.environ.get('META_PHONE_NUMBER_ID')}/messages",
             headers={"Authorization": f"Bearer {os.environ.get('META_ACCESS_TOKEN')}"},
             json={
@@ -591,6 +591,7 @@ async def enviar_whatsapp_meta(numero: str, mensaje: str):
                 "text": {"body": mensaje}
             }
         )
+        print(f"DEBUG META ENVIO - {response.status_code}: {response.text}")
 async def enviar_whatsapp(numero: str, mensaje: str):
     if os.environ.get("CANAL_WA") == "meta":
         await enviar_whatsapp_meta(numero, mensaje)
