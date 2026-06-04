@@ -79,6 +79,7 @@ Reglas importantes:
 - Los sábados trabajamos con los siguientes horarios: 9am - 11am - 1pm
 - Los domingos no laboramos
 - La agenda del día es privada, no dar detalles. Sólo trabajar con el horario elegido.
+- Si se detecta la intención de reagendar un servicio o visita, recordarle al cliente escribir REAGENDAR para proceder.
 - Cuando tengas nombre, dirección, servicio, fecha y hora confirmados, 
   tu respuesta debe ser ÚNICAMENTE esto, sin ningún texto adicional antes ni después:
 
@@ -197,7 +198,6 @@ class CotizacionInput(BaseModel):
     visita_id: int
 
 async def procesar_mensaje(numero: str, Body: str, db) -> str:
-
 #BLOQUE 1- INTERCEPTAR ACEPTO Y CONFIRMO SIN CLAUDE
     # ACEPTO
     if Body.strip().upper() == "ACEPTO":
@@ -218,15 +218,12 @@ async def procesar_mensaje(numero: str, Body: str, db) -> str:
                 texto_respuesta = f"Excelente {cotizacion.nombre_cliente}, su cotización ha sido aceptada. El primer horario disponible para realizar el trabajo es el {fecha_disponible.strftime('%d/%m/%Y')} a las {primer_horario}. Para confirmar responda CONFIRMO. Para sugerirle otro horario responda REAGENDAR"
             else: # Si no se acepta el horario, se cierra la conexión a DB y se envía mensaje de error.
                 texto_respuesta = f"Excelente {cotizacion.nombre_cliente}, su cotización ha sido aceptada. Por el momento no tenemos horarios disponibles en los próximos 15 días. Le contactaremos para agendar."
-
-        else: # Si no se encuentra Cotización se envía mensaje de error.
-            texto_respuesta = "No encontramos una cotización pendiente. Si tiene alguna pregunta contáctenos al 9992717117"
         
-        db.add(Historial(numero=numero, role="user", contenido=Body))
-        db.add(Historial(numero=numero, role="assistant", contenido=texto_respuesta))
-        db.commit()
-        return texto_respuesta
-        
+            db.add(Historial(numero=numero, role="user", contenido=Body))
+            db.add(Historial(numero=numero, role="assistant", contenido=texto_respuesta))
+            db.commit()
+            return texto_respuesta
+    
     # CONFIRMO
     if Body.strip().upper() == "CONFIRMO":
         cotizacion = db.query(Cotizacion).filter( #Devuelve la 1° cotización filtrada con los sig parámetros:
@@ -235,6 +232,7 @@ async def procesar_mensaje(numero: str, Body: str, db) -> str:
         ).order_by(Cotizacion.fecha.desc()).first()
 
         if cotizacion: # Si hay cotización, se cargan las siguientes variables con los datos de la cotización
+            cotizacion.estado = "confirmada"
             primer_horario = cotizacion.hora_propuesta
             fecha_disponible = cotizacion.fecha_propuesta
 
@@ -273,53 +271,91 @@ async def procesar_mensaje(numero: str, Body: str, db) -> str:
             else: # Si no se encuentran horarios se envía mensaje de error.
                 texto_respuesta = "Lo sentimos, no hay horarios disponibles. Si tiene alguna duda contáctenos al 9992717117"
 
-        else: # Si no se encuentra Cotización se envía mensaje de error.
-            texto_respuesta = "No encontramos una cotización aceptada pendiente de confirmar. Si tiene alguna duda contáctenos al 9992717117"
-        
-        db.add(Historial(numero=numero, role="user", contenido=Body))
-        db.add(Historial(numero=numero, role="assistant", contenido=texto_respuesta))
-        db.commit() # Añade los cambios definitivos de la cita de servicio a la DB y al Historial
-        return texto_respuesta
+            db.add(Historial(numero=numero, role="user", contenido=Body))
+            db.add(Historial(numero=numero, role="assistant", contenido=texto_respuesta))
+            db.commit() # Añade los cambios definitivos de la cita de servicio a la DB y al Historial
+            return texto_respuesta
+        else:
+            servicio = db.query(CitaServicio).filter(
+                CitaServicio.numero == numero,
+                CitaServicio.estado.in_(["pago pendiente", "pagado"]),
+                CitaServicio.fecha_servicio > ahora_mexico.date()
+            ).order_by(CitaServicio.fecha.desc()).first()
 
+            if servicio:
+                fecha_serv = servicio.fecha_servicio 
+                hora_serv = servicio.hora_servicio
+                fecha_str = f"{dias[fecha_serv.weekday()]} {fecha_serv.day} de {meses[fecha_serv.month - 1]}"
+
+                if servicio.estado == "pagado":
+                    texto_respuesta = f"Su cita ha sido reagendada para el {fecha_serv} a las {hora_serv}. Hasta pronto"
+                else:
+                    texto_respuesta = f"Su cita ha sido reagendada para el {fecha_serv} a las {hora_serv}. Para confirmarla realice el pago en el link anteriormente enviado"
+            
+            db.add(Historial(numero=numero, role="user", contenido=Body))
+            db.add(Historial(numero=numero, role="assistant", contenido=texto_respuesta))
+            db.commit() # Añade los cambios definitivos de la cita de servicio a la DB y al Historial
+            return texto_respuesta
+    
+    # REAGENDAR
     if Body.strip().upper() == "REAGENDAR": # Detectar la intención de reagendar
         cotizacion = db.query(Cotizacion).filter( # Devuelve la 1° cotización filtrada con los sig parámetros:
             Cotizacion.numero == numero,
             Cotizacion.estado == "aceptada",
-            Cotizacion.fecha_propuesta > ahora_mexico.strftime("%Y-%m-%d") 
+            Cotizacion.fecha_propuesta > ahora_mexico.date()
         ).order_by(Cotizacion.fecha.desc()).first()
 
         if cotizacion:
-            fecha_actual = date.fromisoformat(cotizacion.fecha_propuesta)
+            fecha_actual = cotizacion.fecha_propuesta
             dia_siguiente = fecha_actual + timedelta(days=1)
             primer_horario, fecha_disponible = buscar_horario_disponible(db=db, fecha_inicio=dia_siguiente) 
 
             if primer_horario:
                 cotizacion.hora_propuesta = primer_horario
-                cotizacion.fecha_propuesta = str(fecha_disponible)
+                cotizacion.fecha_propuesta = fecha_disponible
                 fecha_str = f"{dias[fecha_disponible.weekday()]} {fecha_disponible.day} de {meses[fecha_disponible.month - 1]}"
                 texto_respuesta = f"Con gusto {cotizacion.nombre_cliente}. El siguiente horario disponible es el {fecha_str} a las {primer_horario}. Para confirmar responda CONFIRMO. Para sugerirle otro horario responda REAGENDAR"
             else:
                 texto_respuesta = "Lo sentimos, no tenemos más horarios disponibles en los próximos 15 días. Le contactaremos para agendar."
-        else: 
-            visita = db.query(Visitas).filter(
-                Visitas.numero == numero,
-                Visitas.estado.in_(["pago pendiente", "pagado"]),
-                Visitas.fecha_visita > ahora_mexico.strftime("%Y-%m-%d") 
-            ).order_by(Visitas.fecha.desc()).first()
-            
-            if visita:
-                fecha_actual = visita.fecha_visita
+        else:
+            servicio = db.query(CitaServicio).filter(
+                CitaServicio.numero == numero,
+                CitaServicio.estado.in_(["pago pendiente", "pagado"]),
+                CitaServicio.fecha_servicio > ahora_mexico.date()
+            ).order_by(CitaServicio.fecha.desc()).first()
+
+            if servicio:
+                fecha_actual = servicio.fecha_servicio
                 dia_siguiente = fecha_actual + timedelta(days=1)
-                primer_horario, fecha_disponible = buscar_horario_disponible(db=db, fecha_inicio=dia_siguiente, isServ=False)
+                primer_horario, fecha_disponible = buscar_horario_disponible(db=db, fecha_inicio=dia_siguiente)
 
                 if primer_horario:
-                    visita.fecha_visita = fecha_disponible
-                    visita.hora_visita = datetime.strptime(primer_horario, "%H:%M").time()
-                    texto_respuesta = f"Con gusto {visita.nombre_cliente}. El siguiente horario disponible para su visita es el {fecha_disponible.strftime('%d/%m/%Y')} a las {primer_horario}. Para confirmar responda CONFIRMO. Para sugerirle otro horario responda REAGENDAR."
+                    servicio.fecha_servicio = fecha_disponible
+                    servicio.hora_servicio = datetime.strptime(primer_horario, "%H:%M").time()
+                    fecha_str = f"{dias[fecha_disponible.weekday()]} {fecha_disponible.day} de {meses[fecha_disponible.month - 1]}"
+                    texto_respuesta = f"Con gusto {servicio.nombre_cliente}. El siguiente horario disponible para su servicio es el {fecha_str} a las {primer_horario}. Para confirmar responda CONFIRMO. Para sugerirle otro horario responda REAGENDAR."
                 else:
                     texto_respuesta = "Lo sentimos, no tenemos más horarios disponibles en los próximos 15 días. Le contactaremos para agendar."
             else:
-                texto_respuesta = "No encontramos cotización ni visita activa. Si tiene alguna pregunta contáctenos al 9992717117"
+                visita = db.query(Visitas).filter(
+                    Visitas.numero == numero,
+                    Visitas.estado.in_(["pago pendiente", "pagado"]),
+                    Visitas.fecha_visita > ahora_mexico.date()
+                ).order_by(Visitas.fecha.desc()).first()
+            
+                if visita:
+                    fecha_actual = visita.fecha_visita
+                    dia_siguiente = fecha_actual + timedelta(days=1)
+                    primer_horario, fecha_disponible = buscar_horario_disponible(db=db, fecha_inicio=dia_siguiente, isServ=False)
+
+                    if primer_horario:
+                        visita.fecha_visita = fecha_disponible
+                        visita.hora_visita = datetime.strptime(primer_horario, "%H:%M").time()
+                        texto_respuesta = f"Con gusto {visita.nombre_cliente}. El siguiente horario disponible para su visita es el {fecha_disponible.strftime('%d/%m/%Y')} a las {primer_horario}. Para confirmar responda CONFIRMO. Para sugerirle otro horario responda REAGENDAR."
+                    else:
+                        texto_respuesta = "Lo sentimos, no tenemos más horarios disponibles en los próximos 15 días. Le contactaremos para agendar."
+                else:
+                    texto_respuesta = "No encontramos cotización ni visita activa. Si tiene alguna pregunta contáctenos al 9992717117"
 
         db.add(Historial(numero=numero, role="user", contenido=Body))
         db.add(Historial(numero=numero, role="assistant", contenido=texto_respuesta))
@@ -333,7 +369,6 @@ async def procesar_mensaje(numero: str, Body: str, db) -> str:
     
     historial = [{"role": m.role, "content": m.contenido} for m in mensajes_db] # Convierte a formato que entiende Claude
     historial.append({"role": "user", "content": Body}) # Agrega el mensaje nuevo
-    
     db.add(Historial(numero=numero, role="user", contenido=Body)) # Guarda el mensaje del usuario en la base de datos
     db.commit()
     
@@ -350,7 +385,6 @@ async def procesar_mensaje(numero: str, Body: str, db) -> str:
 
 #BLOQUE 3 - PROCESAR RESPUESTA DE CLAUDE
     if "CITA:" in texto_respuesta: # Detectar la intención de cita
-        print(f"DEBUG 1 - texto_respuesta: '{texto_respuesta}'")
         try:
             _, json_raw = texto_respuesta.split("CITA:")
             datos = json.loads(json_raw.strip())
@@ -361,7 +395,6 @@ async def procesar_mensaje(numero: str, Body: str, db) -> str:
             descripcion = datos["descripción"].strip()
             fecha_cita = datos["fecha"].strip()
             hora_cita = datos["hora"].strip()
-            print(f"DEBUG 3 - cliente: {nombre_cliente}, direccion: {direccion}, desc: {descripcion}, a las {hora_cita} del {fecha_cita}")
 
             if not nombre_cliente or nombre_cliente.lower() == "none":
                 texto_respuesta = "Entendido, si necesitas algo más con gusto te ayudo."
@@ -386,10 +419,8 @@ async def procesar_mensaje(numero: str, Body: str, db) -> str:
                     })
 
                 db.commit()
-                print(f"DEBUG 4 - cita creada con id: {cita.id}")
                 link = crear_link_pago(pago, f"v_{cita.id}") # Generar link de pago
-                print(f"DEBUG 5 - link generado: {link}")
-                texto_respuesta = f"Cita registrada {nombre_cliente}. El costo de la visita es $475 MXN. Aquí está tu link de pago para confirmar la cita: {link}"
+                texto_respuesta = f"Cita registrada {nombre_cliente}. El costo de la visita es $475 MXN. Aquí está tu link de pago para confirmar la cita: {link} \n\nPara sugerirle otro horario responda REAGENDAR."
         except Exception as e:
             print(f"DEBUG - error interno: {e}")
             texto_respuesta = "Hubo un problema al procesar tu pedido. Por favor intenta de nuevo."
@@ -422,7 +453,10 @@ async def webhook_mercadopago(request: Request):
         if payment_info["status"] == "approved":
             pedido_id = payment_info["external_reference"]"""
             
-    db = SessionLocal() # Actualizamos el pedido en la base de datos
+    db = SessionLocal()
+    mensaje = None
+    numero = None
+    registro = None
 
     if str(orden_id).startswith("v_"):
         id_fil = int(str(orden_id).replace("v_",""))
@@ -432,7 +466,6 @@ async def webhook_mercadopago(request: Request):
             db.commit()
             mensaje = f"Pago recibido. Su visita para diagnóstico ha sido confirmada para el {registro.fecha_visita} a las {registro.hora_visita}. Gracias {registro.nombre_cliente}."
             numero = registro.numero
-    
     elif str(orden_id).startswith("s_"):
         id_fil = int(str(orden_id).replace("s_",""))
         registro = db.query(CitaServicio).filter_by(id=id_fil).first()
@@ -441,21 +474,12 @@ async def webhook_mercadopago(request: Request):
             db.commit()
             mensaje = f"Pago recibido. Su cita de servicio ha sido confirmada para el {registro.fecha_servicio} a las {registro.hora_servicio}. Gracias {registro.nombre_cliente}."
             numero = registro.numero
-    
     else:
         db.close()
         return {"status": "ok"}
-
-    if registro:          
-        twilio_client = TwilioClient( # Manda mensaje de confirmación por WhatsApp
-                    os.environ.get("TWILIO_ACCOUNT_SID"),
-                    os.environ.get("TWILIO_AUTH_TOKEN")
-                )
-        twilio_client.messages.create(
-                    from_=os.environ.get("TWILIO_WA_NUMBER"),
-                    to=numero,
-                    body=mensaje
-                )
+    
+    if registro and mensaje and numero:
+        await enviar_whatsapp(numero, mensaje)
 
     db.close()
     return {"status": "ok"}
@@ -475,17 +499,8 @@ async def crear_cotizacion(data: CotizacionInput):
     db.add(cotizacion)
     db.commit()
     cotizacion_id = cotizacion.id 
-
-    twilio_client = TwilioClient(
-        os.environ.get("TWILIO_ACCOUNT_SID"),
-        os.environ.get("TWILIO_AUTH_TOKEN")
-    )
-
-    twilio_client.messages.create(
-        from_=os.environ.get("TWILIO_WA_NUMBER"),
-        to=data.numero,
-        body=f"Hola {data.nombre_cliente}, le compartimos la cotización para el trabajo solicitado:\n\n{data.descripcion}\n\nPrecio estimado: ${data.precio} MXN\n\nPara aceptar y agendar su visita responda ACEPTO. Para cualquier duda estamos a sus órdenes al 9992717117."
-    )
+    mensaje = f"Hola {data.nombre_cliente}, le compartimos la cotización para el trabajo solicitado:\n\n{data.descripcion}\n\nPrecio estimado: ${data.precio} MXN\n\nPara aceptar y agendar su visita responda ACEPTO. Para cualquier duda estamos a sus órdenes al 9992717117."
+    await enviar_whatsapp(data.numero, mensaje)
 
     db.close()
     return {"status": "cotizacion enviada", "id": cotizacion_id}
@@ -552,3 +567,32 @@ async def whatsapp(Body: str = Form(...), From: str = Form(...)):
     twiml = MessagingResponse()
     twiml.message(texto_respuesta)
     return Response(content=str(twiml), media_type="application/xml")
+
+async def enviar_whatsapp_twilio(numero: str, mensaje: str):
+    twilio_client = TwilioClient(
+        os.environ.get("TWILIO_ACCOUNT_SID"),
+        os.environ.get("TWILIO_AUTH_TOKEN")
+    )
+    twilio_client.messages.create(
+        from_=os.environ.get("TWILIO_WA_NUMBER"),
+        to=numero,
+        body=mensaje
+    )
+async def enviar_whatsapp_meta(numero: str, mensaje: str):
+    numero_limpio = numero.replace("whatsapp:+", "")
+    async with httpx.AsyncClient() as client:
+        await client.post(
+            f"https://graph.facebook.com/v18.0/{os.environ.get('META_PHONE_NUMBER_ID')}/messages",
+            headers={"Authorization": f"Bearer {os.environ.get('META_ACCESS_TOKEN')}"},
+            json={
+                "messaging_product": "whatsapp",
+                "to": numero_limpio,
+                "type": "text",
+                "text": {"body": mensaje}
+            }
+        )
+async def enviar_whatsapp(numero: str, mensaje: str):
+    if os.environ.get("CANAL_WA") == "meta":
+        await enviar_whatsapp_meta(numero, mensaje)
+    else:
+        await enviar_whatsapp_twilio(numero, mensaje)

@@ -11,7 +11,6 @@ MEXICO_TZ = timezone(timedelta(hours=-6))
 
 st.set_page_config(page_title="Osorio Mantenimiento", layout="wide")
 st.title("Panel de Administración — Osorio Mantenimiento")
-
 db = SessionLocal()
 
 # TABS 
