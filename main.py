@@ -375,7 +375,7 @@ async def procesar_mensaje(numero: str, Body: str, db) -> str:
     # MOSTRAR AGENDA DEL DÍA PARA ADMIN
     if Body.strip().upper() == "AGENDA":
         if numero != os.environ.get("ADMIN_NUMERO"):
-            print("ignoro")
+            print(f"ignoró a: {numero}")
             return None  # ignora si no es el admin, cae al Bloque 2
         
         hoy = ahora_mexico.date()
