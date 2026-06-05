@@ -20,6 +20,7 @@ cliente = Anthropic()
 historial = []
 MEXICO_TZ = ZoneInfo("America/Mexico_City")
 ahora_mexico = datetime.now(MEXICO_TZ)# + timedelta(days=3)
+precio_visita = 475.0
 
 dias = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
 meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
@@ -255,18 +256,11 @@ async def procesar_mensaje(numero: str, Body: str, db) -> str:
                 )
                 db.add(cita)
                 db.flush() # Añade los cambios de la cita de servicio a la base de datos sin hacer commit --> cambios temporales
-
-                pago = [{ # Configuración del pago 
-                    "title": cotizacion.descripcion,
-                    "quantity": 1,
-                    "unit_price": float(cotizacion.precio),
-                    "currency_id": "MXN"
-                }]
                 print(f"DEBUG - cita servicio creada id: {cita.id}")
 
                 # Llamar a función generadora de link de pago y enviar mensaje con ese contenido
-                link = crear_link_pago(pago, f"s_{cita.id}") 
-                texto_respuesta = f"Su cita ha sido agendada para el {fecha_disponible} a las {primer_horario}. Para confirmarla realice el pago de ${cotizacion.precio} MXN: {link}"
+                link = crear_link_pago(cotizacion.descripcion, float(cotizacion.precio), f"s_{cita.id}") 
+                texto_respuesta = f"Su cita ha sido agendada para el {fecha_disponible} a las {primer_horario}. Para confirmarla realice el pago de ${cotizacion.precio} MXN: {link}\n\nLe recomendamos realizar el pago lo antes posible ya que este link expira en 24 horas."
 
             else: # Si no se encuentran horarios se envía mensaje de error.
                 texto_respuesta = "Lo sentimos, no hay horarios disponibles. Si tiene alguna duda contáctenos al 9992717117"
@@ -459,17 +453,9 @@ async def procesar_mensaje(numero: str, Body: str, db) -> str:
                 )
                 db.add(cita)
                 db.flush() 
-                pago = [] 
-                pago.append({
-                    "title": "Visita de mantenimiento",
-                    "quantity": 1,
-                    "unit_price": 475,
-                    "currency_id": "MXN"
-                    })
-
                 db.commit()
-                link = crear_link_pago(pago, f"v_{cita.id}") # Generar link de pago
-                texto_respuesta = f"Cita registrada {nombre_cliente}. El costo de la visita es $475 MXN. Aquí está tu link de pago para confirmar la cita: {link} \n\nPara sugerirle otro horario responda REAGENDAR."
+                link = crear_link_pago("Visita de mantenimiento", precio_visita, f"v_{cita.id}", fecha_cita = cita.fecha_visita, hora_cita= cita.hora_visita)
+                texto_respuesta = f"Cita registrada {nombre_cliente}. El costo de la visita es $475 MXN. Aquí está tu link de pago para confirmar la cita: {link}\n\nLe recomendamos realizar el pago lo antes posible ya que este link expira el día de su visita.\n\nPara sugerirle otro horario responda REAGENDAR."
         except Exception as e:
             print(f"DEBUG - error interno: {e}")
             texto_respuesta = "Hubo un problema al procesar tu pedido. Por favor intenta de nuevo."
