@@ -452,7 +452,7 @@ async def procesar_mensaje(numero: str, Body: str, db) -> str:
     )
 
     texto_respuesta = respuesta.content[0].text
-    db.add(Historial(numero=numero, role="assistant", contenido=texto_respuesta)) # Guarda la respuesta en la base de datos
+    db.add(Historial(numero=numero, role="assistant", contenido=texto_respuesta, fecha = ahora_mexico)) # Guarda la respuesta en la base de datos
     db.commit()
 
 #BLOQUE 3 - PROCESAR RESPUESTA DE CLAUDE
