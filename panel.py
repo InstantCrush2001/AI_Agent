@@ -271,14 +271,28 @@ with tab3:
     if numero_buscar:
         mensajes = db.query(Historial).filter(
             Historial.numero == numero_buscar
-        ).order_by(Historial.fecha).all()
+        ).order_by(Historial.fecha.desc()).all()
 
         if mensajes:
+            # Agrupar por día
+            from collections import defaultdict
+            mensajes_por_dia = defaultdict(list)
             for m in mensajes:
-                if m.role == "user":
-                    st.chat_message("user").write(m.contenido)
-                else:
-                    st.chat_message("assistant").write(m.contenido)
+                dia = m.fecha.date()
+                mensajes_por_dia[dia].append(m)
+
+            # Ordenar días de más reciente a más antiguo
+            for dia in sorted(mensajes_por_dia.keys(), reverse=True):
+                st.markdown(f"**{dia.strftime('%A %d de %B %Y')}**")
+                st.divider()
+
+                # Mensajes del día de más reciente a más antiguo
+                for m in mensajes_por_dia[dia]:
+                    hora = m.fecha.strftime("%H:%M")
+                    if m.role == "user":
+                        st.chat_message("user").write(f"[{hora}] {m.contenido}")
+                    else:
+                        st.chat_message("assistant").write(f"[{hora}] {m.contenido}")
         else:
             st.info("No hay conversaciones para ese número")
 

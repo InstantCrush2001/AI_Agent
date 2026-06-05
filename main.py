@@ -21,7 +21,6 @@ historial = []
 MEXICO_TZ = ZoneInfo("America/Mexico_City")
 MAX_MENSAJES = 30       # máximo de mensajes
 VENTANA_MINUTOS = 60    # en una hora
-ahora_mexico = datetime.now(MEXICO_TZ)# + timedelta(days=3)
 precio_visita = 475.0
 
 dias = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
@@ -29,6 +28,7 @@ meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto
 
 def construir_system_prompt():
     db = SessionLocal()
+    ahora_mexico = datetime.now(MEXICO_TZ)# + timedelta(days=3)
     fecha_hoy = ahora_mexico.strftime("%d/%m/%Y") 
     agenda_hoy_texto = agenda_hoy(db=db, hoy= fecha_hoy)
     # Obtener 1° horario disponible a partir del día siguiente
@@ -52,18 +52,15 @@ def construir_system_prompt():
 Hoy es {fecha_hoy}
 AGENDA DE HOY: {agenda_hoy_texto}
 1° horario disponible para agendar visitas: {disponibilidad_visita}
-    - Cuando el cliente quiera agendar una visita, ofrece los horarios indicados en la agenda del día.
+    - Cuando el cliente quiera agendar una visita, ofrece los horarios indicados en la agenda de hoy.
     - No inventes horarios que no estén en la disponibilidad.
 
 Tipo de servicios brindados principalmente: Plomería, Instalaciones eléctricas, Pintura, Carpintería, Herrería, Jardinería, Automatización
 
-Tu trabajo es:
-1. Siempre es posible atenderles en persona siempre y cuando la visita esté pagada, no importa que sea un servicio no enlistado
-2. Agendar una cita para el cliente 
-
 Reglas importantes:
 - Responde siempre en español, de forma amable y cálida
 - También aclara que nuestros técnicos hablan inglés y francés
+- Siempre es posible atenderles en persona siempre y cuando la visita esté pagada, no importa que sea un servicio no enlistado
 - Advierte que la tarifa de visita dentro de la ciudad de Mérida es de $475 MXN y en caso de concretarse el servicio, se descuenta del total.
 - Si el cliente pregunta por un servicio que no está enlistado, no advertirle que no se encuentra en la lista, simplemente decirle que 
   siempre y cuando se pague visita veremos como ayudarle.
@@ -76,7 +73,7 @@ Reglas importantes:
     - Nombre
     - Dirección de la visita
 - Y proponer el 1° horario disponible del día siguiente.
-- Sólo ofrece horarios que aparezcan en disponibilidad_texto. Si todos los horarios están ocupados decir que no hay diponibilidad ese día 
+- Sólo ofrece horarios que aparezcan en disponibilidad_visita. Si todos los horarios están ocupados decir que no hay diponibilidad ese día 
   y agenda para el día laboral más cercano.
 - De lunes a viernes trabajamos con los siguientes horarios: 9am - 11am - 1pm - 4pm - 6 pm
 - Los sábados trabajamos con los siguientes horarios: 9am - 11am - 1pm
@@ -86,7 +83,7 @@ Reglas importantes:
 - Cuando tengas nombre, dirección, servicio, fecha y hora confirmados, 
   tu respuesta debe ser ÚNICAMENTE esto, sin ningún texto adicional antes ni después:
 
-CITA:{{"nombre": "Juan García", "direccion": "Calle 60 123", "descripción": "jardinería", "fecha": "2026-05-20", "hora": "09:00"}}
+    CITA:{{"nombre": "Juan García", "direccion": "Calle 60 123", "descripción": "jardinería", "fecha": "2026-05-20", "hora": "09:00"}}
 
 - NUNCA agregues texto antes o después del formato CITA:
 - NUNCA incluyas links ni explicaciones junto al formato CITA:
@@ -191,7 +188,7 @@ def buscar_horario_disponible(db, fecha_inicio, isServ = True):
     return primer_horario, fecha_disponible
 
 def verificar_limite(db, numero: str) -> bool: # "-> bool" indica que la función devuelve bool
-    # ahora = datetime.now(MEXICO_TZ)
+    ahora_mexico = datetime.now(MEXICO_TZ)# + timedelta(days=3)
     registro = db.query(RateLimiter).filter_by(numero=numero).first()
 
     if not registro:
@@ -230,7 +227,7 @@ class CotizacionInput(BaseModel):
 async def procesar_mensaje(numero: str, Body: str, db) -> str:
     if not verificar_limite(db, numero):
         return "Has excedido el límite de mensajes. Por favor intenta de nuevo en una hora."
-    
+    ahora_mexico = datetime.now(MEXICO_TZ)# + timedelta(days=3)
 #BLOQUE 1- INTERCEPTAR COMANDOS SIN CLAUDE
     # ACEPTO
     if Body.strip().upper() == "ACEPTO":
@@ -307,7 +304,7 @@ async def procesar_mensaje(numero: str, Body: str, db) -> str:
                 CitaServicio.estado.in_(["pago pendiente", "pagado"]),
                 CitaServicio.fecha_servicio > ahora_mexico.date()
             ).order_by(CitaServicio.fecha.desc()).first()
-
+            
             if servicio:
                 fecha_serv = servicio.fecha_servicio 
                 hora_serv = servicio.hora_servicio
@@ -487,7 +484,7 @@ async def procesar_mensaje(numero: str, Body: str, db) -> str:
                 db.flush() 
                 db.commit()
                 link = crear_link_pago("Visita de mantenimiento", precio_visita, f"v_{cita.id}", fecha_cita = cita.fecha_visita, hora_cita= cita.hora_visita)
-                texto_respuesta = f"Cita registrada {nombre_cliente}. El costo de la visita es $475 MXN. Aquí está tu link de pago para confirmar la cita: {link}\n\nLe recomendamos realizar el pago lo antes posible ya que este link expira el día de su visita.\n\nPara sugerirle otro horario responda REAGENDAR."
+                texto_respuesta = f"Cita registrada {nombre_cliente}. El costo de la visita es $475 MXN. Aquí está tu link de pago para confirmar la cita: {link}\n\nLe recomendamos realizar el pago lo antes posible ya que este link expira dos horas antes de su visita.\n\nPara sugerirle otro horario responda REAGENDAR."
         except Exception as e:
             print(f"DEBUG - error interno: {e}")
             texto_respuesta = "Hubo un problema al procesar tu pedido. Por favor intenta de nuevo."
