@@ -77,6 +77,13 @@ class HorarioBloqueado(Base):
     fecha = Column(Date)
     hora = Column(String(10))  # formato "09:00"
 
+class RateLimiter(Base):
+    __tablename__ = "limite_mensajes"
+    id = Column(Integer, primary_key=True)
+    numero = Column(String(50))
+    cantidad = Column(Integer, default=0)
+    ventana_inicio = Column(DateTime(timezone=True), default=datetime.now())
+
 # Crea las tablas en PostgreSQL si no existen
 def crear_tablas():
     Base.metadata.create_all(engine)

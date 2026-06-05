@@ -4,7 +4,7 @@ from anthropic import Anthropic
 from dotenv import load_dotenv
 from twilio.twiml.messaging_response import MessagingResponse
 from twilio.rest import Client as TwilioClient
-from database import SessionLocal, Historial, Visitas, Cotizacion, CitaServicio, HorarioBloqueado, crear_tablas
+from database import SessionLocal, Historial, Visitas, Cotizacion, CitaServicio, HorarioBloqueado, RateLimiter, crear_tablas
 import mercadopago
 import os
 from pagos import crear_link_pago
@@ -19,6 +19,8 @@ crear_tablas()  # crea las tablas al arrancar el servidor
 cliente = Anthropic()
 historial = []
 MEXICO_TZ = ZoneInfo("America/Mexico_City")
+MAX_MENSAJES = 30       # máximo de mensajes
+VENTANA_MINUTOS = 60    # en una hora
 ahora_mexico = datetime.now(MEXICO_TZ)# + timedelta(days=3)
 precio_visita = 475.0
 
@@ -91,6 +93,7 @@ CITA:{{"nombre": "Juan García", "direccion": "Calle 60 123", "descripción": "j
 - Si el formato CITA: está en tu respuesta, no debe haber nada más
 - No uses valores null o vacíos
 """
+
 def agenda_hoy(db, hoy):
     servicios_hoy = db.query(CitaServicio).filter( #Añade todas las citas de servicio del día actual a la variable
         CitaServicio.fecha_servicio == hoy,
@@ -187,6 +190,32 @@ def buscar_horario_disponible(db, fecha_inicio, isServ = True):
         print(f"Visitas: {len(visitas_dia)} /// Servicios: {len(servicios_dia)}")
     return primer_horario, fecha_disponible
 
+def verificar_limite(db, numero: str) -> bool: # "-> bool" indica que la función devuelve bool
+    # ahora = datetime.now(MEXICO_TZ)
+    registro = db.query(RateLimiter).filter_by(numero=numero).first()
+
+    if not registro:
+        db.add(RateLimiter(numero=numero, cantidad=1, ventana_inicio=ahora_mexico))
+        db.commit()
+        return True  # permitir
+
+    # Verificar si la ventana expiró
+    tiempo_transcurrido = (ahora_mexico - registro.ventana_inicio.replace(tzinfo=MEXICO_TZ)).total_seconds() / 60
+
+    if tiempo_transcurrido > VENTANA_MINUTOS:
+        # Reiniciar ventana
+        registro.cantidad = 1
+        registro.ventana_inicio = ahora_mexico
+        db.commit()
+        return True  # permitir
+
+    if registro.cantidad >= MAX_MENSAJES:
+        return False  # bloquear
+
+    registro.cantidad += 1
+    db.commit()
+    return True  # permitir
+
 # Le dice a FastAPI qué forma tiene el JSON que va a recibir
 class Mensaje(BaseModel):
     texto: str
@@ -199,6 +228,9 @@ class CotizacionInput(BaseModel):
     visita_id: int
 
 async def procesar_mensaje(numero: str, Body: str, db) -> str:
+    if not verificar_limite(db, numero):
+        return "Has excedido el límite de mensajes. Por favor intenta de nuevo en una hora."
+    
 #BLOQUE 1- INTERCEPTAR COMANDOS SIN CLAUDE
     # ACEPTO
     if Body.strip().upper() == "ACEPTO":
