@@ -496,6 +496,7 @@ async def procesar_mensaje(numero: str, Body: str, db) -> str:
 
     if ultimo_historial:
         ultimo_historial.contenido = texto_respuesta
+        ultimo_historial.fecha = ahora_mexico
         db.commit()
 
     return texto_respuesta
