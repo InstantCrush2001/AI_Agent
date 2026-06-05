@@ -249,8 +249,8 @@ async def procesar_mensaje(numero: str, Body: str, db) -> str:
             else: # Si no se acepta el horario, se cierra la conexión a DB y se envía mensaje de error.
                 texto_respuesta = f"Excelente {cotizacion.nombre_cliente}, su cotización ha sido aceptada. Por el momento no tenemos horarios disponibles en los próximos 15 días. Le contactaremos para agendar."
         
-            db.add(Historial(numero=numero, role="user", contenido=Body))
-            db.add(Historial(numero=numero, role="assistant", contenido=texto_respuesta))
+            db.add(Historial(numero=numero, role="user", contenido=Body, fecha = ahora_mexico))
+            db.add(Historial(numero=numero, role="assistant", contenido=texto_respuesta, fecha = ahora_mexico))
             db.commit()
             return texto_respuesta
     
@@ -294,8 +294,8 @@ async def procesar_mensaje(numero: str, Body: str, db) -> str:
             else: # Si no se encuentran horarios se envía mensaje de error.
                 texto_respuesta = "Lo sentimos, no hay horarios disponibles. Si tiene alguna duda contáctenos al 9992717117"
 
-            db.add(Historial(numero=numero, role="user", contenido=Body))
-            db.add(Historial(numero=numero, role="assistant", contenido=texto_respuesta))
+            db.add(Historial(numero=numero, role="user", contenido=Body, fecha = ahora_mexico))
+            db.add(Historial(numero=numero, role="assistant", contenido=texto_respuesta, fecha = ahora_mexico))
             db.commit() # Añade los cambios definitivos de la cita de servicio a la DB y al Historial
             return texto_respuesta
         else:
@@ -315,8 +315,8 @@ async def procesar_mensaje(numero: str, Body: str, db) -> str:
                 else:
                     texto_respuesta = f"Su cita ha sido reagendada para el {fecha_serv} a las {hora_serv}. Para confirmarla realice el pago en el link anteriormente enviado"
             
-            db.add(Historial(numero=numero, role="user", contenido=Body))
-            db.add(Historial(numero=numero, role="assistant", contenido=texto_respuesta))
+            db.add(Historial(numero=numero, role="user", contenido=Body, fecha = ahora_mexico))
+            db.add(Historial(numero=numero, role="assistant", contenido=texto_respuesta, fecha = ahora_mexico))
             db.commit() # Añade los cambios definitivos de la cita de servicio a la DB y al Historial
             return texto_respuesta
     
@@ -390,8 +390,8 @@ async def procesar_mensaje(numero: str, Body: str, db) -> str:
                 else:
                     texto_respuesta = "No encontramos cotización ni visita activa. Si tiene alguna pregunta contáctenos al 9992717117"
 
-        db.add(Historial(numero=numero, role="user", contenido=Body))
-        db.add(Historial(numero=numero, role="assistant", contenido=texto_respuesta))
+        db.add(Historial(numero=numero, role="user", contenido=Body, fecha = ahora_mexico))
+        db.add(Historial(numero=numero, role="assistant", contenido=texto_respuesta, fecha = ahora_mexico))
         db.commit()
         return texto_respuesta
             
@@ -429,8 +429,8 @@ async def procesar_mensaje(numero: str, Body: str, db) -> str:
             lineas.sort()  # ordena por hora
             texto_respuesta = "\n".join(lineas)
         
-        db.add(Historial(numero=numero, role="user", contenido=Body))
-        db.add(Historial(numero=numero, role="assistant", contenido=texto_respuesta))
+        db.add(Historial(numero=numero, role="user", contenido=Body, fecha = ahora_mexico))
+        db.add(Historial(numero=numero, role="assistant", contenido=texto_respuesta, fecha = ahora_mexico))
         db.commit()
         return texto_respuesta
 
@@ -441,7 +441,7 @@ async def procesar_mensaje(numero: str, Body: str, db) -> str:
     
     historial = [{"role": m.role, "content": m.contenido} for m in mensajes_db] # Convierte a formato que entiende Claude
     historial.append({"role": "user", "content": Body}) # Agrega el mensaje nuevo
-    db.add(Historial(numero=numero, role="user", contenido=Body)) # Guarda el mensaje del usuario en la base de datos
+    db.add(Historial(numero=numero, role="user", contenido=Body, fecha = ahora_mexico)) # Guarda el mensaje del usuario en la base de datos
     db.commit()
     
     respuesta = cliente.messages.create( # Llama a Claude
