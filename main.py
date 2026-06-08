@@ -80,14 +80,12 @@ DATOS CAPTURADOS DEL CLIENTE:
     - Nombre
     - Dirección de la visita
 - Cuando el cliente proporcione nombre y dirección, responde ÚNICAMENTE:
-    DATOS:{{"nombre": "Juan García", "direccion": "calle 60 123", "descripcion": "jardinería"}}
+    DATOS:{{"nombre": "Juan García", "direccion": "calle 60 123", "descripcion": "jardinería", "fecha": "2026-05-20", "hora": "09:00"}}
 - No pidas datos que ya aparecen en DATOS CAPTURADOS
 
 CUANDO TENGAS TODOS LOS DATOS (nombre, dirección, descripción, fecha, hora):
-- Tu respuesta debe ser ÚNICAMENTE:
-  CITA:{{"nombre": "Juan García", "direccion": "Calle 60 123", "descripción": "jardinería", "fecha": "2026-05-20", "hora": "09:00"}}
+- Tu respuesta debe ser ÚNICAMENTE: CITA
 - NUNCA agregues texto antes o después 
-- No uses valores null o vacíos
 """
 
 def agenda_hoy(db, hoy):
@@ -479,52 +477,55 @@ async def procesar_mensaje(numero: str, Body: str, db) -> str:
                 sesion = SesionCita(numero=numero)
                 db.add(sesion)
 
-                if "nombre" in datos:
-                    sesion.nombre = datos["nombre"]
-                if "direccion" in datos:
-                    sesion.direccion = datos["direccion"]
-                if "descripcion" in datos:
-                    sesion.descripcion = datos["descripcion"]
+            if "nombre" in datos:
+                sesion.nombre = datos["nombre"]
+            if "direccion" in datos:
+                sesion.direccion = datos["direccion"]
+            # Estos tres datos el bot los extrae según lo indicado en System Prompt
+            if "descripcion" in datos:
+                sesion.descripcion = datos["descripcion"]
+            if "fecha" in datos:
+                sesion.fecha = datos["fecha"]
+            if "hora" in datos:
+                sesion.hora = datos["hora"]
             db.commit()
-            texto_respuesta = f"Datos registrados.\nNombre:{sesion.nombre}\nDireccion:{sesion.direccion}\nTipo de servicio:{sesion.descripcion}\nContinuamos?"
 
+            if sesion.nombre and sesion.direccion:
+                texto_respuesta = f"Datos registrados.\nNombre: {sesion.nombre}\nDireccion: {sesion.direccion}\nTipo de servicio: {sesion.descripcion}\nFecha propuesta: {sesion.fecha}\nHora propuesta: {sesion.hora}\n\nContinuamos?"
+            else:
+                faltantes = []
+                if not sesion.nombre:
+                    faltantes.append("nombre")
+                if not sesion.direccion:
+                    faltantes.append("dirección")
+                
+                texto_respuesta = f"Aún necesito los siguientes datos: {', '.join(faltantes)}. ¿Me los podría proporcionar?"
         except Exception as e:
             print(f"DEBUG DATO - error: {e}")
 
-    if "CITA:" in texto_respuesta: # Detectar la intención de cita
+    if "CITA" in texto_respuesta: # Detectar la intención de cita
         try:
-            _, json_raw = texto_respuesta.split("CITA:")
-            datos = json.loads(json_raw.strip())
-            print(f"DEBUG 2 - datos: '{datos}'")
-
-            nombre_cliente = datos["nombre"].strip()
-            direccion = datos["direccion"].strip()
-            descripcion = datos["descripción"].strip()
-            fecha_cita = datos["fecha"].strip()
-            hora_cita = datos["hora"].strip()
-
-            if not nombre_cliente or nombre_cliente.lower() == "none":
-                texto_respuesta = "Entendido, si necesitas algo más con gusto te ayudo."
-            else: # Crear cita
-                cita = Visitas(
-                    numero=numero,
-                    nombre_cliente=nombre_cliente,
-                    direccion=direccion,
-                    descripcion = descripcion,
-                    fecha_visita = fecha_cita,
-                    hora_visita = hora_cita,
-                    estado="pago pendiente"
-                )
-                db.add(cita)
-                db.flush() 
-                db.commit()
-                sesion = db.query(SesionCita).filter_by(numero=numero).first()
-                if sesion:
-                    db.delete(sesion)
-                    db.commit()
-                precio_visita = float(os.environ.get("PRECIO_VISITA"))
-                link = crear_link_pago("Visita de mantenimiento", precio_visita, f"v_{cita.id}", fecha_cita = cita.fecha_visita, hora_cita= cita.hora_visita)
-                texto_respuesta = f"Cita registrada {nombre_cliente}. El costo de la visita es $475 MXN. Aquí está tu link de pago para confirmar la cita: {link}\n\nLe recomendamos realizar el pago lo antes posible ya que este link expira dos horas antes de su visita.\n\nPara sugerirle otro horario responda REAGENDAR."
+            sesion = db.query(SesionCita).filter_by(numero=numero).first()
+            # No pasa a la pinche cita si DATOS no están completos. Asi que SIEMPRE estarán completos en este bloque
+            cita = Visitas(
+                numero=numero,
+                nombre_cliente=sesion.nombre,
+                direccion=sesion.direccion,
+                descripcion = sesion.descripcion,
+                fecha_visita = sesion.fecha,
+                hora_visita = sesion.hora,
+                estado="pago pendiente"
+            )
+            db.add(cita)
+            db.flush() 
+            db.commit()
+            db.delete(sesion)
+            db.commit()
+            
+            precio_visita = 11.0 if DEBUG else float(os.environ.get("PRECIO_VISITA"))
+            link = crear_link_pago("Visita de mantenimiento", precio_visita, f"v_{cita.id}", fecha_cita = cita.fecha_visita, hora_cita= cita.hora_visita)
+            texto_respuesta = f"Cita registrada {sesion.nombre}. El costo de la visita es $475 MXN. Aquí está tu link de pago para confirmar la cita: {link}\n\nLe recomendamos realizar el pago lo antes posible ya que este link expira dos horas antes de su visita.\n\nPara sugerirle otro horario responda REAGENDAR."
+        
         except Exception as e:
             print(f"DEBUG - error interno: {e}")
             texto_respuesta = "Hubo un problema al procesar tu pedido. Por favor intenta de nuevo."
