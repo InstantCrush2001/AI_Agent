@@ -546,17 +546,19 @@ async def webhook_mercadopago(request: Request):
     # orden_id = data.get("orden_id") #DEBUG sin pago
 
     # MercadoPago manda diferentes tipos de notificaciones, solo nos interesan las de pagos aprobados
-    if data.get("type") == "payment":
-        payment_id = data["data"]["id"]
+    if data.get("type") != "payment":
+        return {"status": "ok"}  # ignorar notificaciones que no son de pago
+    
+    # Consultamos el pago para obtener los detalles
+    payment_id = data["data"]["id"]  
+    sdk = mercadopago.SDK(os.environ.get("MP_ACCESS_TOKEN"))
+    payment = sdk.payment().get(payment_id)
+    payment_info = payment["response"]
         
-        # Consultamos el pago para obtener los detalles
-        sdk = mercadopago.SDK(os.environ.get("MP_ACCESS_TOKEN"))
-        payment = sdk.payment().get(payment_id)
-        payment_info = payment["response"]
-        
-        if payment_info["status"] == "approved":
-            orden_id = payment_info["external_reference"]
-            
+    if payment_info["status"] != "approved":
+        return {"status": "ok"}  # ignorar pagos no aprobados
+    
+    orden_id = payment_info["external_reference"]        
     db = SessionLocal()
     mensaje = None
     numero = None
