@@ -543,9 +543,9 @@ async def procesar_mensaje(numero: str, Body: str, db) -> str:
 @app.post("/webhook/mercadopago")
 async def webhook_mercadopago(request: Request):
     data = await request.json()
-    orden_id = data.get("orden_id") #DEBUG sin pago
+    # orden_id = data.get("orden_id") #DEBUG sin pago
 
-    """# MercadoPago manda diferentes tipos de notificaciones, solo nos interesan las de pagos aprobados
+    # MercadoPago manda diferentes tipos de notificaciones, solo nos interesan las de pagos aprobados
     if data.get("type") == "payment":
         payment_id = data["data"]["id"]
         
@@ -555,7 +555,7 @@ async def webhook_mercadopago(request: Request):
         payment_info = payment["response"]
         
         if payment_info["status"] == "approved":
-            pedido_id = payment_info["external_reference"]"""
+            orden_id = payment_info["external_reference"]
             
     db = SessionLocal()
     mensaje = None
