@@ -493,6 +493,7 @@ async def procesar_mensaje(numero: str, Body: str, db) -> str:
 
             if sesion.nombre and sesion.direccion:
                 texto_respuesta = f"Datos registrados.\nNombre: {sesion.nombre}\nDireccion: {sesion.direccion}\nTipo de servicio: {sesion.descripcion}\nFecha propuesta: {sesion.fecha}\nHora propuesta: {sesion.hora}\n\nContinuamos?"
+                datos_capturados += "\n\nTODOS LOS DATOS ESTÁN COMPLETOS. Si el cliente confirma, responde ÚNICAMENTE: CITA"
             else:
                 faltantes = []
                 if not sesion.nombre:
