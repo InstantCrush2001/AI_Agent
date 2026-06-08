@@ -84,8 +84,8 @@ DATOS CAPTURADOS DEL CLIENTE:
 - No pidas datos que ya aparecen en DATOS CAPTURADOS
 
 CUANDO TENGAS TODOS LOS DATOS (nombre, dirección, descripción, fecha, hora):
-- Tu respuesta debe ser ÚNICAMENTE: CITA
-- NUNCA agregues texto antes o después 
+- Si el cliente confirma los datos con "sí", "continuar", "correcto" o similar, responde ÚNICAMENTE: CITA
+- No vuelvas a generar DATOS: si ya están todos capturados
 """
 
 def agenda_hoy(db, hoy):
