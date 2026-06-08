@@ -4,7 +4,7 @@ from anthropic import Anthropic
 from dotenv import load_dotenv
 from twilio.twiml.messaging_response import MessagingResponse
 from twilio.rest import Client as TwilioClient
-from database import SessionLocal, Historial, Visitas, Cotizacion, CitaServicio, HorarioBloqueado, RateLimiter, crear_tablas
+from database import SessionLocal, Historial, Visitas, Cotizacion, CitaServicio, HorarioBloqueado, RateLimiter, SesionCita, crear_tablas
 import mercadopago
 import os
 from pagos import crear_link_pago
@@ -26,7 +26,7 @@ precio_visita = 475.0
 dias = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
 meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
 
-def construir_system_prompt():
+def construir_system_prompt(datos_capturados: str = ""):
     db = SessionLocal()
     ahora_mexico = datetime.now(MEXICO_TZ)# + timedelta(days=3)
     fecha_hoy = ahora_mexico.strftime("%d/%m/%Y") 
@@ -43,6 +43,7 @@ def construir_system_prompt():
         disponibilidad_visita = f"El próximo horario disponible para una visita de diagnóstico es {fecha_str} a las {horario_visita}."
     else:
         disponibilidad_visita = "No hay horarios disponibles para visitas en los próximos 15 días."
+
 
     db.close() 
     print(f" DEBUG - {disponibilidad_visita}")
@@ -66,28 +67,33 @@ Reglas importantes:
   siempre y cuando se pague visita veremos como ayudarle.
 - No uses formato Markdown, asteriscos, ni negritas, ni emojis. Solo texto plano.
 - Sé breve: máximo 3-4 oraciones por respuesta
-- Extraer la descripción del servicio que desee el cliente. Ejemplo:
-    - necesito un sistema de riego
-    - "descripción": "jardinería"
-- Cuando el cliente confirme su intención de recibir la visita, preguntar los siguientes datos de contacto:
-    - Nombre
-    - Dirección de la visita
-- Y proponer el 1° horario disponible del día siguiente.
+- Proponer los horarios disponible del día siguiente.
 - Sólo ofrece horarios que aparezcan en disponibilidad_visita. Si todos los horarios están ocupados decir que no hay diponibilidad ese día 
   y agenda para el día laboral más cercano.
 - De lunes a viernes trabajamos con los siguientes horarios: 9am - 11am - 1pm - 4pm - 6 pm
 - Los sábados trabajamos con los siguientes horarios: 9am - 11am - 1pm
 - Los domingos no laboramos
-- La agenda del día es privada, no dar detalles. Sólo trabajar con el horario elegido.
+- La agenda del día es privada, no dar detalles.
 - Si se detecta la intención de reagendar un servicio o visita, recordarle al cliente escribir REAGENDAR para proceder.
-- Cuando tengas nombre, dirección, servicio, fecha y hora confirmados, 
-  tu respuesta debe ser ÚNICAMENTE esto, sin ningún texto adicional antes ni después:
 
-    CITA:{{"nombre": "Juan García", "direccion": "Calle 60 123", "descripción": "jardinería", "fecha": "2026-05-20", "hora": "09:00"}}
+DATOS CAPTURADOS DEL CLIENTE:
+{datos_capturados if datos_capturados else "Ninguno aún"}
 
-- NUNCA agregues texto antes o después del formato CITA:
-- NUNCA incluyas links ni explicaciones junto al formato CITA:
-- Si el formato CITA: está en tu respuesta, no debe haber nada más
+- Extraer la descripción del servicio que desee el cliente. Ejemplo:
+    - necesito un sistema de riego
+    - DATOS:{{"descripcion": "jardinería"}}
+- Cuando el cliente confirme su intención de recibir la visita, preguntar los siguientes datos de contacto:
+    - Nombre
+    - Dirección de la visita
+- Cuando el cliente proporcione nombre y dirección, responde ÚNICAMENTE:
+    DATOS:{{"campo": "nombre", "valor": "Juan García"}}
+
+- No pidas datos que ya aparecen en DATOS CAPTURADOS
+
+CUANDO TENGAS TODOS LOS DATOS (nombre, dirección, descripción, fecha, hora):
+- Tu respuesta debe ser ÚNICAMENTE:
+  CITA:{{"nombre": "Juan García", "direccion": "Calle 60 123", "descripción": "jardinería", "fecha": "2026-05-20", "hora": "09:00"}}
+- NUNCA agregues texto antes o después 
 - No uses valores null o vacíos
 """
 
@@ -443,19 +449,64 @@ async def procesar_mensaje(numero: str, Body: str, db) -> str:
     historial.append({"role": "user", "content": Body}) # Agrega el mensaje nuevo
     db.add(Historial(numero=numero, role="user", contenido=Body, fecha = ahora_mexico)) # Guarda el mensaje del usuario en la base de datos
     db.commit()
-    
+    sesion = db.query(SesionCita).filter_by(numero=numero).first()
+
+    datos_capturados = ""
+    if sesion:
+        partes = []
+        if sesion.nombre:
+            partes.append(f"Nombre: {sesion.nombre}")
+        if sesion.direccion:
+            partes.append(f"Dirección: {sesion.direccion}")
+        if sesion.descripcion:
+            partes.append(f"Descripción: {sesion.descripcion}")
+        datos_capturados = "\n".join(partes)
+
     respuesta = cliente.messages.create( # Llama a Claude
         model="claude-sonnet-4-6",
         max_tokens=1024,
-        system=construir_system_prompt(),
+        system=construir_system_prompt(datos_capturados),
         messages=historial[-10:],  # solo los últimos 10 mensajes
     )
-
     texto_respuesta = respuesta.content[0].text
     db.add(Historial(numero=numero, role="assistant", contenido=texto_respuesta, fecha = ahora_mexico)) # Guarda la respuesta en la base de datos
     db.commit()
 
 #BLOQUE 3 - PROCESAR RESPUESTA DE CLAUDE
+    if "DATOS:" in texto_respuesta:
+        try:
+            inicio = texto_respuesta.find("DATOS:")
+            json_raw = texto_respuesta[inicio + 6:]
+            inicio_json = json_raw.find("{")
+            fin_json = json_raw.rfind("}") + 1
+            datos = json.loads(json_raw[inicio_json:fin_json])
+
+            sesion = db.query(SesionCita).filter_by(numero=numero).first()
+            if not sesion:
+                sesion = SesionCita(numero=numero)
+                db.add(sesion)
+
+                if "nombre" in datos:
+                    sesion.nombre = datos["nombre"]
+                if "direccion" in datos:
+                    sesion.direccion = datos["direccion"]
+                if "descripcion" in datos:
+                    sesion.descripcion = datos["descripcion"]
+                if "campo" in datos and "valor" in datos:
+                    campo = datos["campo"]
+                    valor = datos["valor"]
+                    if campo == "nombre":
+                        sesion.nombre = valor
+                    elif campo == "direccion":
+                        sesion.direccion = valor
+                    elif campo == "descripcion":
+                        sesion.descripcion = valor
+
+            db.commit()
+
+        except Exception as e:
+            print(f"DEBUG DATO - error: {e}")
+
     if "CITA:" in texto_respuesta: # Detectar la intención de cita
         try:
             _, json_raw = texto_respuesta.split("CITA:")
@@ -483,6 +534,10 @@ async def procesar_mensaje(numero: str, Body: str, db) -> str:
                 db.add(cita)
                 db.flush() 
                 db.commit()
+                sesion = db.query(SesionCita).filter_by(numero=numero).first()
+                if sesion:
+                    db.delete(sesion)
+                    db.commit()
                 link = crear_link_pago("Visita de mantenimiento", precio_visita, f"v_{cita.id}", fecha_cita = cita.fecha_visita, hora_cita= cita.hora_visita)
                 texto_respuesta = f"Cita registrada {nombre_cliente}. El costo de la visita es $475 MXN. Aquí está tu link de pago para confirmar la cita: {link}\n\nLe recomendamos realizar el pago lo antes posible ya que este link expira dos horas antes de su visita.\n\nPara sugerirle otro horario responda REAGENDAR."
         except Exception as e:

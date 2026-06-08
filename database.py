@@ -84,6 +84,18 @@ class RateLimiter(Base):
     cantidad = Column(Integer, default=0)
     ventana_inicio = Column(DateTime(timezone=True), default=datetime.now())
 
+class SesionCita(Base):
+    __tablename__ = "sesiones_cita"
+
+    id = Column(Integer, primary_key=True)
+    numero = Column(String(50), unique=True)  # uno por cliente
+    nombre = Column(String(100))
+    direccion = Column(Text)
+    descripcion = Column(Text)
+    fecha = Column(Date)
+    hora = Column(String(10))
+    fecha_creacion = Column(DateTime(timezone=True), default=datetime.now())
+
 # Crea las tablas en PostgreSQL si no existen
 def crear_tablas():
     Base.metadata.create_all(engine)
