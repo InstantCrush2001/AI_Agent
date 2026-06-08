@@ -1,7 +1,9 @@
 import os
 import mercadopago
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
+MEXICO_TZ = ZoneInfo("America/Mexico_City")
 sdk = mercadopago.SDK(os.environ.get("MP_ACCESS_TOKEN"))
 
 def crear_link_pago(titulo: str, precio: float, orden_id: str, fecha_cita=None, hora_cita=None) -> str:
@@ -12,7 +14,7 @@ def crear_link_pago(titulo: str, precio: float, orden_id: str, fecha_cita=None, 
         fecha_hora_cita = datetime.combine(fecha_cita, hora_cita)
         expiracion = fecha_hora_cita - timedelta(hours=2)
     else:
-        expiracion = datetime.now() + timedelta(hours=24) # Servicio — expira en 24 horas después de mandar la cotización
+        expiracion = datetime.now(MEXICO_TZ) + timedelta(hours=24) # Servicio — expira en 24 horas después de mandar la cotización
 
     preference_data = {
         "items": [{
@@ -24,7 +26,7 @@ def crear_link_pago(titulo: str, precio: float, orden_id: str, fecha_cita=None, 
         "notification_url": f"{os.environ.get('BASE_URL')}/webhook/mercadopago", # MercadoPago notificará a esta URL cuando el pago sea exitoso
         "external_reference": str(orden_id), # ID de tu pedido para identificarlo cuando llegue la notificación
         "expires": True,
-        "expiration_date_from": datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000-06:00"),
+        "expiration_date_from": datetime.now(MEXICO_TZ).strftime("%Y-%m-%dT%H:%M:%S.000-06:00"),
         "expiration_date_to": expiracion.strftime("%Y-%m-%dT%H:%M:%S.000-06:00"),
         "date_of_expiration": expiracion.strftime("%Y-%m-%dT%H:%M:%S.000-06:00"),
     }
