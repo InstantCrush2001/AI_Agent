@@ -16,6 +16,7 @@ app = FastAPI()
 crear_tablas()  # crea las tablas al arrancar el servidor
 cliente = Anthropic()
 MEXICO_TZ = ZoneInfo("America/Mexico_City")
+DEBUG = os.environ.get("DEBUG", "false").lower() == "true"
 MAX_MENSAJES = 30       # máximo de mensajes
 VENTANA_MINUTOS = 60    # en una hora
 
@@ -543,22 +544,25 @@ async def procesar_mensaje(numero: str, Body: str, db) -> str:
 @app.post("/webhook/mercadopago")
 async def webhook_mercadopago(request: Request):
     data = await request.json()
-    # orden_id = data.get("orden_id") #DEBUG sin pago
 
-    # MercadoPago manda diferentes tipos de notificaciones, solo nos interesan las de pagos aprobados
-    if data.get("type") != "payment":
-        return {"status": "ok"}  # ignorar notificaciones que no son de pago
-    
-    # Consultamos el pago para obtener los detalles
-    payment_id = data["data"]["id"]  
-    sdk = mercadopago.SDK(os.environ.get("MP_ACCESS_TOKEN"))
-    payment = sdk.payment().get(payment_id)
-    payment_info = payment["response"]
+    if DEBUG: 
+        orden_id = data.get("orden_id") #DEBUG sin pago
+    else:
+        # MercadoPago manda diferentes tipos de notificaciones, solo nos interesan las de pagos aprobados
+        if data.get("type") != "payment":
+            return {"status": "ok"}  # ignorar notificaciones que no son de pago
         
-    if payment_info["status"] != "approved":
-        return {"status": "ok"}  # ignorar pagos no aprobados
+        # Consultamos el pago para obtener los detalles
+        payment_id = data["data"]["id"]  
+        sdk = mercadopago.SDK(os.environ.get("MP_ACCESS_TOKEN"))
+        payment = sdk.payment().get(payment_id)
+        payment_info = payment["response"]
+            
+        if payment_info["status"] != "approved":
+            return {"status": "ok"}  # ignorar pagos no aprobados
+        
+        orden_id = payment_info["external_reference"]
     
-    orden_id = payment_info["external_reference"]        
     db = SessionLocal()
     mensaje = None
     numero = None
