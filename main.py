@@ -1,9 +1,7 @@
-from fastapi import FastAPI, Form, Response, Request
+from fastapi import FastAPI, Response, Request
 from pydantic import BaseModel
 from anthropic import Anthropic
 from dotenv import load_dotenv
-from twilio.twiml.messaging_response import MessagingResponse
-from twilio.rest import Client as TwilioClient
 from database import SessionLocal, Historial, Visitas, Cotizacion, CitaServicio, HorarioBloqueado, RateLimiter, SesionCita, crear_tablas
 import mercadopago
 import os
@@ -17,11 +15,9 @@ load_dotenv()
 app = FastAPI()
 crear_tablas()  # crea las tablas al arrancar el servidor
 cliente = Anthropic()
-historial = []
 MEXICO_TZ = ZoneInfo("America/Mexico_City")
 MAX_MENSAJES = 30       # máximo de mensajes
 VENTANA_MINUTOS = 60    # en una hora
-precio_visita = 475.0
 
 dias = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
 meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
@@ -31,8 +27,7 @@ def construir_system_prompt(datos_capturados: str = ""):
     ahora_mexico = datetime.now(MEXICO_TZ)# + timedelta(days=3)
     fecha_hoy = ahora_mexico.strftime("%d/%m/%Y") 
     agenda_hoy_texto = agenda_hoy(db=db, hoy= fecha_hoy)
-    # Obtener 1° horario disponible a partir del día siguiente
-    mañana = (ahora_mexico + timedelta(days=1)).date()
+    mañana = (ahora_mexico + timedelta(days=1)).date() # Obtener 1° horario disponible a partir del día siguiente
     horario_visita, fecha_visita = buscar_horario_disponible(db=db, fecha_inicio=mañana, isServ=False)
     
     if horario_visita:
@@ -43,8 +38,6 @@ def construir_system_prompt(datos_capturados: str = ""):
         disponibilidad_visita = f"El próximo horario disponible para una visita de diagnóstico es {fecha_str} a las {horario_visita}."
     else:
         disponibilidad_visita = "No hay horarios disponibles para visitas en los próximos 15 días."
-
-
     db.close() 
     print(f" DEBUG - {disponibilidad_visita}")
 
@@ -86,7 +79,7 @@ DATOS CAPTURADOS DEL CLIENTE:
     - Nombre
     - Dirección de la visita
 - Cuando el cliente proporcione nombre y dirección, responde ÚNICAMENTE:
-    DATOS:{{"campo": "nombre", "valor": "Juan García"}}
+    DATOS:{{"nombre": "Juan García", "direccion": "calle 60 123"}}
 
 - No pidas datos que ya aparecen en DATOS CAPTURADOS
 
@@ -492,16 +485,6 @@ async def procesar_mensaje(numero: str, Body: str, db) -> str:
                     sesion.direccion = datos["direccion"]
                 if "descripcion" in datos:
                     sesion.descripcion = datos["descripcion"]
-                if "campo" in datos and "valor" in datos:
-                    campo = datos["campo"]
-                    valor = datos["valor"]
-                    if campo == "nombre":
-                        sesion.nombre = valor
-                    elif campo == "direccion":
-                        sesion.direccion = valor
-                    elif campo == "descripcion":
-                        sesion.descripcion = valor
-
             db.commit()
 
         except Exception as e:
@@ -538,6 +521,7 @@ async def procesar_mensaje(numero: str, Body: str, db) -> str:
                 if sesion:
                     db.delete(sesion)
                     db.commit()
+                precio_visita = float(os.environ.get("PRECIO_VISITA"))
                 link = crear_link_pago("Visita de mantenimiento", precio_visita, f"v_{cita.id}", fecha_cita = cita.fecha_visita, hora_cita= cita.hora_visita)
                 texto_respuesta = f"Cita registrada {nombre_cliente}. El costo de la visita es $475 MXN. Aquí está tu link de pago para confirmar la cita: {link}\n\nLe recomendamos realizar el pago lo antes posible ya que este link expira dos horas antes de su visita.\n\nPara sugerirle otro horario responda REAGENDAR."
         except Exception as e:
@@ -679,25 +663,6 @@ async def whatsapp_meta(request: Request):
 
     return {"status": "ok"}
 
-@app.post("/whatsapp")
-async def whatsapp(Body: str = Form(...), From: str = Form(...)):
-    db = SessionLocal()
-    texto_respuesta = await procesar_mensaje(From, Body, db)
-    db.close()
-    twiml = MessagingResponse()
-    twiml.message(texto_respuesta)
-    return Response(content=str(twiml), media_type="application/xml")
-
-async def enviar_whatsapp_twilio(numero: str, mensaje: str):
-    twilio_client = TwilioClient(
-        os.environ.get("TWILIO_ACCOUNT_SID"),
-        os.environ.get("TWILIO_AUTH_TOKEN")
-    )
-    twilio_client.messages.create(
-        from_=os.environ.get("TWILIO_WA_NUMBER"),
-        to=numero,
-        body=mensaje
-    )
 async def enviar_whatsapp_meta(numero: str, mensaje: str):
     numero_limpio = numero.replace("whatsapp:+", "")
     async with httpx.AsyncClient() as client:
@@ -714,5 +679,3 @@ async def enviar_whatsapp_meta(numero: str, mensaje: str):
 async def enviar_whatsapp(numero: str, mensaje: str):
     if os.environ.get("CANAL_WA") == "meta":
         await enviar_whatsapp_meta(numero, mensaje)
-    else:
-        await enviar_whatsapp_twilio(numero, mensaje)
