@@ -222,8 +222,9 @@ class CotizacionInput(BaseModel):
     visita_id: int
 
 async def procesar_mensaje(numero: str, Body: str, db) -> str:
-    if not verificar_limite(db, numero):
-        return "Has excedido el límite de mensajes. Por favor intenta de nuevo en una hora."
+    if not DEBUG:
+        if not verificar_limite(db, numero):
+            return "Has excedido el límite de mensajes. Por favor intenta de nuevo en una hora."
     ahora_mexico = datetime.now(MEXICO_TZ)# + timedelta(days=3)
 #BLOQUE 1- INTERCEPTAR COMANDOS SIN CLAUDE
     # ACEPTO
