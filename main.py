@@ -74,14 +74,13 @@ DATOS CAPTURADOS DEL CLIENTE:
 {datos_capturados if datos_capturados else "Ninguno aún"}
 
 - Extraer la descripción del servicio que desee el cliente. Ejemplo:
-    - necesito un sistema de riego
-    - DATOS:{{"descripcion": "jardinería"}}
+    - Cliente dice: necesito un sistema de riego
+    - tu deber es insertar "jardinería" en el campo "descripcion" 
 - Cuando el cliente confirme su intención de recibir la visita, preguntar los siguientes datos de contacto:
     - Nombre
     - Dirección de la visita
 - Cuando el cliente proporcione nombre y dirección, responde ÚNICAMENTE:
-    DATOS:{{"nombre": "Juan García", "direccion": "calle 60 123"}}
-
+    DATOS:{{"nombre": "Juan García", "direccion": "calle 60 123", "descripcion": "jardinería"}}
 - No pidas datos que ya aparecen en DATOS CAPTURADOS
 
 CUANDO TENGAS TODOS LOS DATOS (nombre, dirección, descripción, fecha, hora):
@@ -487,6 +486,7 @@ async def procesar_mensaje(numero: str, Body: str, db) -> str:
                 if "descripcion" in datos:
                     sesion.descripcion = datos["descripcion"]
             db.commit()
+            texto_respuesta = f"Datos registrados.\nNombre:{sesion.nombre}\nDireccion:{sesion.direccion}\nTipo de servicio:{sesion.descripcion}\nContinuamos?"
 
         except Exception as e:
             print(f"DEBUG DATO - error: {e}")
