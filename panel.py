@@ -271,24 +271,28 @@ with tab3:
     if numero_buscar:
         mensajes = db.query(Historial).filter(
             Historial.numero == numero_buscar
-        ).order_by(Historial.fecha.desc()).all()
+        ).order_by(Historial.fecha.desc(), Historial.id.desc()).all()
 
         if mensajes:
             # Agrupar por día
             from collections import defaultdict
             mensajes_por_dia = defaultdict(list)
             for m in mensajes:
-                dia = m.fecha.date()
+                fecha_mexico = m.fecha.astimezone(MEXICO_TZ) if m.fecha.tzinfo else m.fecha
+                dia = fecha_mexico.date()
                 mensajes_por_dia[dia].append(m)
 
             # Ordenar días de más reciente a más antiguo
             for dia in sorted(mensajes_por_dia.keys(), reverse=True):
                 st.markdown(f"**{dia.strftime('%A %d de %B %Y')}**")
                 st.divider()
-
-                # Mensajes del día de más reciente a más antiguo
-                for m in mensajes_por_dia[dia]:
-                    hora = m.fecha.strftime("%H:%M")
+                
+                # Ordenar por id descendente dentro del día
+                mensajes_dia = sorted(mensajes_por_dia[dia], key=lambda x: x.id, reverse=True)
+                
+                for m in mensajes_dia:
+                    fecha_mexico = m.fecha.astimezone(MEXICO_TZ) if m.fecha.tzinfo else m.fecha
+                    hora = fecha_mexico.strftime("%H:%M")
                     if m.role == "user":
                         st.chat_message("user").write(f"[{hora}] {m.contenido}")
                     else:
