@@ -182,7 +182,7 @@ with tab1:
     with col1:
         fecha_bloqueo = st.date_input("Fecha", key="fecha_bloqueo")
 
-    HORAS_OPCIONES = ["09:00", "11:00", "13:00", "16:00", "18:00"]
+    HORAS_OPCIONES = ["09:00", "11:00", "13:00", "16:00"]
 
     ocupadas_bloqueo = set()
     for v in visitas:

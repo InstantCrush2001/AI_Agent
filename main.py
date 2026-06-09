@@ -57,6 +57,7 @@ Reglas importantes:
 - También aclara que nuestros técnicos hablan inglés y francés
 - Siempre es posible atenderles en persona siempre y cuando la visita esté pagada, no importa que sea un servicio no enlistado
 - Advierte que la tarifa de visita dentro de la ciudad de Mérida es de $475 MXN y en caso de concretarse el servicio, se descuenta del total.
+- Si el cliente confirma una dirección fuera de Mérida, infórmale que contacte al 9992717117 para agendar la cita.
 - Si el cliente pregunta por un servicio que no está enlistado, no advertirle que no se encuentra en la lista, simplemente decirle que 
   siempre y cuando se pague visita veremos como ayudarle.
 - No uses formato Markdown, asteriscos, ni negritas, ni emojis. Solo texto plano.
@@ -64,10 +65,11 @@ Reglas importantes:
 - Proponer los horarios disponible del día siguiente.
 - Sólo ofrece horarios que aparezcan en disponibilidad_visita. Si todos los horarios están ocupados decir que no hay diponibilidad ese día 
   y agenda para el día laboral más cercano.
-- De lunes a viernes trabajamos con los siguientes horarios: 9am - 11am - 1pm - 4pm - 6 pm
+- De lunes a viernes trabajamos con los siguientes horarios: 9am - 11am - 1pm - 4pm
 - Los sábados trabajamos con los siguientes horarios: 9am - 11am - 1pm
 - Los domingos no laboramos
 - La agenda del día es privada, no dar detalles.
+- Si el cliente tiene alguna duda de los servicios o solicita un número telefónico al cual llamar, decirle que puede llamar al 9992717117.
 - Si se detecta la intención de reagendar un servicio o visita, recordarle al cliente escribir REAGENDAR para proceder.
 
 DATOS CAPTURADOS DEL CLIENTE:
@@ -82,6 +84,8 @@ DATOS CAPTURADOS DEL CLIENTE:
 - Cuando el cliente proporcione nombre y dirección, responde ÚNICAMENTE:
     DATOS:{{"nombre": "Juan García", "direccion": "calle 60 123", "descripcion": "jardinería", "fecha": "2026-05-20", "hora": "09:00"}}
 - No pidas datos que ya aparecen en DATOS CAPTURADOS
+- Si el cliente proporciona explícitamente una ciudad diferente de Mérida, NO respondas con el formato "DATOS:", en cambio
+  infórmale que contacte al 9992717117 para agendar la cita
 
 CUANDO TENGAS TODOS LOS DATOS (nombre, dirección, descripción, fecha, hora):
 - Si el cliente confirma los datos con "sí", "continuar", "correcto" o similar, responde ÚNICAMENTE: CITA
@@ -134,7 +138,7 @@ def buscar_horario_disponible(db, fecha_inicio, isServ = True):
         if dia_actual.weekday() == 5 or isServ == True:# Sábado o servicio
             horarios_disponibles = ["09:00", "11:00", "13:00"]
         else: # Lunes a viernes
-            horarios_disponibles = ["09:00", "11:00", "13:00", "16:00", "18:00"]
+            horarios_disponibles = ["09:00", "11:00", "13:00", "16:00"]
 
         servicios_dia = db.query(CitaServicio).filter( #Añade todas las citas de servicio del día actual a la variable
         CitaServicio.fecha_servicio == dia_actual,
