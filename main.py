@@ -490,7 +490,6 @@ async def procesar_mensaje(numero: str, Body: str, db) -> str:
             inicio_json = json_raw.find("{")
             fin_json = json_raw.rfind("}") + 1
             datos = json.loads(json_raw[inicio_json:fin_json])
-
             sesion = db.query(SesionCita).filter_by(numero=numero).first()
             if not sesion:
                 sesion = SesionCita(numero=numero)
