@@ -92,6 +92,7 @@ DATOS CAPTURADOS DEL CLIENTE:
 CUANDO TENGAS TODOS LOS DATOS (nombre, dirección, descripción, fecha, hora):
 - Si el cliente confirma los datos con "sí", "continuar", "correcto" o similar, responde ÚNICAMENTE: CITA
 - No vuelvas a generar DATOS: si ya están todos capturados
+
 """
 
 def agenda_hoy(db, hoy):
