@@ -390,10 +390,12 @@ async def procesar_mensaje(numero: str, Body: str, db) -> str:
                             mensaje_admin = f"URGENTE: {visita.nombre_cliente} reagendó su visita de HOY para el {fecha_disponible.strftime('%d/%m/%Y')} a las {primer_horario}."
                             await enviar_whatsapp(os.environ.get("ADMIN_NUMERO"), mensaje_admin)
                             print("pasó await WA")
+                        else:
+                            print("ignoro WA")
                     else:
                         texto_respuesta = "Lo sentimos, no tenemos más horarios disponibles en los próximos 15 días. Le contactaremos para agendar."
                 else:
-                    texto_respuesta = f"No encontramos cotización ni visita activa. Si tiene alguna pregunta contáctenos al {numero_admin}"
+                    texto_respuesta = f"No encontramos cotización ni visita activa. Si tiene alguna pregunta contáctenos al {numero_admin}."
 
         db.add(Historial(numero=numero, role="user", contenido=Body, fecha = ahora_mexico))
         db.add(Historial(numero=numero, role="assistant", contenido=texto_respuesta, fecha = ahora_mexico))
@@ -473,44 +475,52 @@ async def procesar_mensaje(numero: str, Body: str, db) -> str:
 
 #BLOQUE 3 - PROCESAR RESPUESTA DE CLAUDE
     if "DATOS:" in texto_respuesta:
-        try:
-            inicio = texto_respuesta.find("DATOS:")
-            json_raw = texto_respuesta[inicio + 6:]
-            inicio_json = json_raw.find("{")
-            fin_json = json_raw.rfind("}") + 1
-            datos = json.loads(json_raw[inicio_json:fin_json])
+        visita_agendada = db.query(Visitas).filter(
+                        Visitas.numero == numero,
+                        Visitas.estado.in_(["pago pendiente", "pagado"]),
+                        Visitas.fecha_visita >= ahora_mexico.date()
+                    ).order_by(Visitas.fecha.desc()).first()
+        if visita_agendada:
+            texto_respuesta = f"Su última visita programada aun no sucede. Puede aprovechar ese día para consultar con los técnicos y anexar los servicios que requiera a su cotización.\n\nSi tiene alguna pregunta contáctenos al {numero_admin}."
+        else:
+            try:
+                inicio = texto_respuesta.find("DATOS:")
+                json_raw = texto_respuesta[inicio + 6:]
+                inicio_json = json_raw.find("{")
+                fin_json = json_raw.rfind("}") + 1
+                datos = json.loads(json_raw[inicio_json:fin_json])
 
-            sesion = db.query(SesionCita).filter_by(numero=numero).first()
-            if not sesion:
-                sesion = SesionCita(numero=numero)
-                db.add(sesion)
+                sesion = db.query(SesionCita).filter_by(numero=numero).first()
+                if not sesion:
+                    sesion = SesionCita(numero=numero)
+                    db.add(sesion)
 
-            if "nombre" in datos:
-                sesion.nombre = datos["nombre"]
-            if "direccion" in datos:
-                sesion.direccion = datos["direccion"]
-            # Estos tres datos el bot los extrae según lo indicado en System Prompt
-            if "descripcion" in datos:
-                sesion.descripcion = datos["descripcion"]
-            if "fecha" in datos:
-                sesion.fecha = datos["fecha"]
-            if "hora" in datos:
-                sesion.hora = datos["hora"]
-            db.commit()
+                if "nombre" in datos:
+                    sesion.nombre = datos["nombre"]
+                if "direccion" in datos:
+                    sesion.direccion = datos["direccion"]
+                # Estos tres datos el bot los extrae según lo indicado en System Prompt
+                if "descripcion" in datos:
+                    sesion.descripcion = datos["descripcion"]
+                if "fecha" in datos:
+                    sesion.fecha = datos["fecha"]
+                if "hora" in datos:
+                    sesion.hora = datos["hora"]
+                db.commit()
 
-            if sesion.nombre and sesion.direccion:
-                texto_respuesta = f"Datos registrados.\nNombre: {sesion.nombre}\nDireccion: {sesion.direccion}\nTipo de servicio: {sesion.descripcion}\nFecha propuesta: {sesion.fecha}\nHora propuesta: {sesion.hora}\n\nContinuamos?"
-                datos_capturados += "\n\nTODOS LOS DATOS ESTÁN COMPLETOS. Si el cliente confirma, responde ÚNICAMENTE: CITA"
-            else:
-                faltantes = []
-                if not sesion.nombre:
-                    faltantes.append("nombre")
-                if not sesion.direccion:
-                    faltantes.append("dirección")
-                
-                texto_respuesta = f"Aún necesito los siguientes datos: {', '.join(faltantes)}. ¿Me los podría proporcionar?"
-        except Exception as e:
-            print(f"DEBUG DATO - error: {e}")
+                if sesion.nombre and sesion.direccion:
+                    texto_respuesta = f"Datos registrados.\nNombre: {sesion.nombre}\nDireccion: {sesion.direccion}\nTipo de servicio: {sesion.descripcion}\nFecha propuesta: {sesion.fecha}\nHora propuesta: {sesion.hora}\n\nContinuamos?"
+                    datos_capturados += "\n\nTODOS LOS DATOS ESTÁN COMPLETOS. Si el cliente confirma, responde ÚNICAMENTE: CITA"
+                else:
+                    faltantes = []
+                    if not sesion.nombre:
+                        faltantes.append("nombre")
+                    if not sesion.direccion:
+                        faltantes.append("dirección")
+                    
+                    texto_respuesta = f"Aún necesito los siguientes datos: {', '.join(faltantes)}. ¿Me los podría proporcionar?"
+            except Exception as e:
+                print(f"DEBUG DATO - error: {e}")
 
     if "CITA" in texto_respuesta: # Detectar la intención de cita
         try:
