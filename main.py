@@ -19,6 +19,7 @@ MEXICO_TZ = ZoneInfo("America/Mexico_City")
 DEBUG = os.environ.get("DEBUG", "false").lower() == "true"
 MAX_MENSAJES = 30       # máximo de mensajes
 VENTANA_MINUTOS = 60    # en una hora
+numero_admin = os.environ.get("ADMIN_NUMERO", "").replace("whatsapp:+521", "")
 
 dias = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
 meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
@@ -53,15 +54,16 @@ AGENDA DE HOY: {agenda_hoy_texto}
 Tipo de servicios brindados principalmente: Plomería, Instalaciones eléctricas, Pintura, Carpintería, Herrería, Jardinería, Automatización
 
 Reglas importantes:
-- Responde siempre en español, de forma amable y cálida
-- También aclara que nuestros técnicos hablan inglés y francés
-- Siempre es posible atenderles en persona siempre y cuando la visita esté pagada, no importa que sea un servicio no enlistado
+- El nombre de la empresa "OSORIO MANTENIMIENTO" siempre desplegarlo en mayúsculas.
+- Responde siempre en español, de forma amable y cálida.
+- También aclara que nuestros técnicos hablan inglés y francés.
+- Siempre es posible atenderles en persona siempre y cuando la visita esté pagada, no importa que sea un servicio no enlistado.
 - Advierte que la tarifa de visita dentro de la ciudad de Mérida es de $475 MXN y en caso de concretarse el servicio, se descuenta del total.
-- Si el cliente confirma una dirección fuera de Mérida, infórmale que contacte al 9992717117 para agendar la cita.
+- Si el cliente confirma una dirección fuera de Mérida, infórmale que contacte al {numero_admin} para agendar la cita.
 - Si el cliente pregunta por un servicio que no está enlistado, no advertirle que no se encuentra en la lista, simplemente decirle que 
   siempre y cuando se pague visita veremos como ayudarle.
 - No uses formato Markdown, asteriscos, ni negritas, ni emojis. Solo texto plano.
-- Sé breve: máximo 3-4 oraciones por respuesta
+- Sé breve: máximo 3-4 oraciones por respuesta.
 - Proponer los horarios disponible del día siguiente.
 - Sólo ofrece horarios que aparezcan en disponibilidad_visita. Si todos los horarios están ocupados decir que no hay diponibilidad ese día 
   y agenda para el día laboral más cercano.
@@ -69,7 +71,7 @@ Reglas importantes:
 - Los sábados trabajamos con los siguientes horarios: 9am - 11am - 1pm
 - Los domingos no laboramos
 - La agenda del día es privada, no dar detalles.
-- Si el cliente tiene alguna duda de los servicios o solicita un número telefónico al cual llamar, decirle que puede llamar al 9992717117.
+- Si el cliente tiene alguna duda de los servicios o solicita un número telefónico al cual llamar, decirle que puede llamar al {numero_admin}.
 - Si se detecta la intención de reagendar un servicio o visita, recordarle al cliente escribir REAGENDAR para proceder.
 
 DATOS CAPTURADOS DEL CLIENTE:
@@ -85,7 +87,7 @@ DATOS CAPTURADOS DEL CLIENTE:
     DATOS:{{"nombre": "Juan García", "direccion": "calle 60 123", "descripcion": "jardinería", "fecha": "2026-05-20", "hora": "09:00"}}
 - No pidas datos que ya aparecen en DATOS CAPTURADOS
 - Si el cliente proporciona explícitamente una ciudad diferente de Mérida, NO respondas con el formato "DATOS:", en cambio
-  infórmale que contacte al 9992717117 para agendar la cita
+  infórmale que contacte al {numero_admin} para agendar la cita
 
 CUANDO TENGAS TODOS LOS DATOS (nombre, dirección, descripción, fecha, hora):
 - Si el cliente confirma los datos con "sí", "continuar", "correcto" o similar, responde ÚNICAMENTE: CITA
@@ -294,7 +296,7 @@ async def procesar_mensaje(numero: str, Body: str, db) -> str:
                 texto_respuesta = f"Su cita ha sido agendada para el {fecha_disponible} a las {primer_horario}. Para confirmarla realice el pago de ${cotizacion.precio} MXN: {link}\n\nLe recomendamos realizar el pago lo antes posible ya que este link expira en 24 horas."
 
             else: # Si no se encuentran horarios se envía mensaje de error.
-                texto_respuesta = "Lo sentimos, no hay horarios disponibles. Si tiene alguna duda contáctenos al 9992717117"
+                texto_respuesta = f"Lo sentimos, no hay horarios disponibles. Si tiene alguna duda contáctenos al {numero_admin}"
 
             db.add(Historial(numero=numero, role="user", contenido=Body, fecha = ahora_mexico))
             db.add(Historial(numero=numero, role="assistant", contenido=texto_respuesta, fecha = ahora_mexico))
@@ -362,9 +364,9 @@ async def procesar_mensaje(numero: str, Body: str, db) -> str:
                     fecha_str = f"{dias[fecha_disponible.weekday()]} {fecha_disponible.day} de {meses[fecha_disponible.month - 1]}"
                     texto_respuesta = f"Con gusto {servicio.nombre_cliente}. El siguiente horario disponible para su servicio es el {fecha_str} a las {primer_horario}. Para confirmar responda CONFIRMO. Para sugerirle otro horario responda REAGENDAR."
                     
-                    """ if servicio.estado == "pagado" and fecha_servicio == ahora_mexico.date():
+                    if servicio.estado == "pagado" and servicio.fecha_servicio == ahora_mexico.date():
                         mensaje_admin = f"AVISO: {servicio.nombre_cliente} reagendó su servicio pagado para el {fecha_disponible.strftime('%d/%m/%Y')} a las {primer_horario}."
-                        await enviar_whatsapp(os.environ.get("ADMIN_NUMERO"), mensaje_admin) """
+                        await enviar_whatsapp(os.environ.get("ADMIN_NUMERO"), mensaje_admin)
                 else:
                     texto_respuesta = "Lo sentimos, no tenemos más horarios disponibles en los próximos 15 días. Le contactaremos para agendar."
             else:
@@ -384,13 +386,13 @@ async def procesar_mensaje(numero: str, Body: str, db) -> str:
                         visita.hora_visita = datetime.strptime(primer_horario, "%H:%M").time()
                         texto_respuesta = f"Con gusto {visita.nombre_cliente}. El siguiente horario disponible para su visita es el {fecha_disponible.strftime('%d/%m/%Y')} a las {primer_horario}. Para confirmar responda CONFIRMO. Para sugerirle otro horario responda REAGENDAR."
                     
-                        """ if visita.estado == "pagado" and visita.fecha_visita == ahora_mexico.date():
+                        if visita.estado == "pagado" and visita.fecha_visita == ahora_mexico.date():
                             mensaje_admin = f"URGENTE: {visita.nombre_cliente} reagendó su visita de HOY para el {fecha_disponible.strftime('%d/%m/%Y')} a las {primer_horario}."
-                            await enviar_whatsapp(os.environ.get("ADMIN_NUMERO"), mensaje_admin) """
+                            await enviar_whatsapp(os.environ.get("ADMIN_NUMERO"), mensaje_admin)
                     else:
                         texto_respuesta = "Lo sentimos, no tenemos más horarios disponibles en los próximos 15 días. Le contactaremos para agendar."
                 else:
-                    texto_respuesta = "No encontramos cotización ni visita activa. Si tiene alguna pregunta contáctenos al 9992717117"
+                    texto_respuesta = f"No encontramos cotización ni visita activa. Si tiene alguna pregunta contáctenos al {numero_admin}"
 
         db.add(Historial(numero=numero, role="user", contenido=Body, fecha = ahora_mexico))
         db.add(Historial(numero=numero, role="assistant", contenido=texto_respuesta, fecha = ahora_mexico))
@@ -534,7 +536,7 @@ async def procesar_mensaje(numero: str, Body: str, db) -> str:
         
         except Exception as e:
             print(f"DEBUG - error interno: {e}")
-            texto_respuesta = "Hubo un problema al procesar tu pedido. Por favor intenta de nuevo."
+            texto_respuesta = "Hubo un problema al procesar tu cita. Por favor intenta de nuevo."
     
     ultimo_historial = db.query(Historial).filter(
         Historial.numero == numero,

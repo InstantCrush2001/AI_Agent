@@ -178,12 +178,11 @@ with tab1:
                                 st.rerun()
     st.divider()
     st.subheader("Bloquear horario")
-    col1, col2, col3 = st.columns([2, 2, 1])
+    col1, col2, col3 = st.columns([1, 1, 1])
     with col1:
         fecha_bloqueo = st.date_input("Fecha", key="fecha_bloqueo")
 
     HORAS_OPCIONES = ["09:00", "11:00", "13:00", "16:00"]
-
     ocupadas_bloqueo = set()
     for v in visitas:
         if v.fecha_visita == fecha_bloqueo and v.estado != "cancelada" and v.hora_visita:
@@ -218,6 +217,61 @@ with tab1:
             ))
             db.commit()
             st.success(f"Horario {hora_bloqueo} del {fecha_bloqueo.strftime('%d/%m/%Y')} bloqueado")
+            st.rerun()
+    
+    st.subheader("Agendar visita")
+
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        nombre_visita = st.text_input("Nombre del cliente", key="nombre_visita")
+        direccion_visita = st.text_input("Dirección", key="direccion_visita")
+        descripcion_visita = st.text_input("Descripción del servicio", key="descripcion_visita")
+    with col2:
+        numero_visita = st.text_input("Número WhatsApp", placeholder="whatsapp:+521234567890", key="numero_visita")
+        fecha_visita_manual = st.date_input("Fecha", key="fecha_visita_manual")
+        
+        # Calcular horarios disponibles para esa fecha
+        HORAS_VISITA = ["09:00", "11:00", "13:00", "16:00"]
+        if fecha_visita_manual.weekday() == 5:  # sábado
+            HORAS_VISITA = ["09:00", "11:00", "13:00"]
+        elif fecha_visita_manual.weekday() == 6:  # domingo
+            HORAS_VISITA = []
+        
+        ocupadas_visita = set()
+        for v in visitas:
+            if v.fecha_visita == fecha_visita_manual and v.estado != "cancelada" and v.hora_visita:
+                ocupadas_visita.add(v.hora_visita.strftime("%H:%M"))
+        for b in bloqueados:
+            if b.fecha == fecha_visita_manual:
+                ocupadas_visita.add(b.hora)
+        
+        horas_libres_visita = [h for h in HORAS_VISITA if h not in ocupadas_visita]
+        
+        if fecha_visita_manual.weekday() == 6:
+            st.warning("Los domingos no laboramos.")
+            hora_visita_manual = None
+        elif horas_libres_visita:
+            hora_visita_manual = st.selectbox("Horario", horas_libres_visita, key="hora_visita_manual")
+        else:
+            st.warning("No hay horarios disponibles ese día.")
+            hora_visita_manual = None
+
+    if st.button("Agendar visita", key="btn_agendar_visita"):
+        if not nombre_visita or not direccion_visita or not numero_visita or not hora_visita_manual:
+            st.error("Por favor completa todos los campos.")
+        else:
+            hora_obj = datetime.strptime(hora_visita_manual, "%H:%M").time()
+            db.add(Visitas(
+                numero=numero_visita,
+                nombre_cliente=nombre_visita,
+                direccion=direccion_visita,
+                descripcion=descripcion_visita,
+                fecha_visita=fecha_visita_manual,
+                hora_visita=hora_obj,
+                estado="pagado"  # agendada manualmente = ya pagada
+            ))
+            db.commit()
+            st.success(f"Visita agendada para {nombre_visita} el {fecha_visita_manual.strftime('%d/%m/%Y')} a las {hora_visita_manual}")
             st.rerun()
 
 # TAB 2: COTIZACIONES 
