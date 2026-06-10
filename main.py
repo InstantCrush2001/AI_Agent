@@ -389,6 +389,7 @@ async def procesar_mensaje(numero: str, Body: str, db) -> str:
                         if visita.estado == "pagado" and visita.fecha_visita == ahora_mexico.date():
                             mensaje_admin = f"URGENTE: {visita.nombre_cliente} reagendó su visita de HOY para el {fecha_disponible.strftime('%d/%m/%Y')} a las {primer_horario}."
                             await enviar_whatsapp(os.environ.get("ADMIN_NUMERO"), mensaje_admin)
+                            print("pasó await WA")
                     else:
                         texto_respuesta = "Lo sentimos, no tenemos más horarios disponibles en los próximos 15 días. Le contactaremos para agendar."
                 else:
