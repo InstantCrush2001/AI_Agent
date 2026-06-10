@@ -373,7 +373,7 @@ async def procesar_mensaje(numero: str, Body: str, db) -> str:
                 visita = db.query(Visitas).filter(
                     Visitas.numero == numero,
                     Visitas.estado.in_(["pago pendiente", "pagado"]),
-                    Visitas.fecha_visita > ahora_mexico.date()
+                    Visitas.fecha_visita >= ahora_mexico.date()
                 ).order_by(Visitas.fecha.desc()).first()
             
                 if visita:
