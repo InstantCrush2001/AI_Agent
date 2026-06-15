@@ -544,7 +544,7 @@ async def procesar_mensaje(numero: str, Body: str, db) -> str:
             
             precio_visita = 11.0 if DEBUG else float(os.environ.get("PRECIO_VISITA"))
             link = crear_link_pago("Visita de mantenimiento", precio_visita, f"v_{cita.id}", fecha_cita = cita.fecha_visita, hora_cita= cita.hora_visita)
-            texto_respuesta = f"Cita registrada {sesion.nombre}. El costo de la visita es $475 MXN. Aquí está tu link de pago para confirmar la cita: {link}\n\nLe recomendamos realizar el pago lo antes posible ya que este link expira dos horas antes de su visita.\n\nPara sugerirle otro horario responda REAGENDAR."
+            texto_respuesta = f"Cita registrada {sesion.nombre}. El costo de la visita es $475 MXN. Aquí está tu link de pago para confirmar la cita: {link}\n\nLe recomendamos realizar el pago lo antes posible ya que este link expira dos horas antes de su visita."
         
         except Exception as e:
             print(f"DEBUG - error interno: {e}")
