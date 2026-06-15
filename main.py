@@ -6,7 +6,7 @@ from database import SessionLocal, Historial, Visitas, Cotizacion, CitaServicio,
 import mercadopago
 import os
 from pagos import crear_link_pago
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 import json
 import httpx
@@ -90,7 +90,7 @@ DATOS CAPTURADOS DEL CLIENTE:
   infórmale que contacte al {numero_admin} para agendar la cita
 
 CUANDO TENGAS TODOS LOS DATOS (nombre, dirección, descripción, fecha, hora):
-- Si el cliente confirma los datos con "sí", "continuar", "correcto" o similar, responde ÚNICAMENTE: CITA
+- Si el cliente confirma los datos con "sí", "continuar", "correcto" o similar, responde ÚNICAMENTE: CITANU
 - No vuelvas a generar DATOS: si ya están todos capturados
 
 """
@@ -509,7 +509,7 @@ async def procesar_mensaje(numero: str, Body: str, db) -> str:
             db.commit()
 
             if sesion.nombre and sesion.direccion:
-                texto_respuesta = f"Datos registrados.\nNombre: {sesion.nombre}\nDireccion: {sesion.direccion}\nTipo de servicio: {sesion.descripcion}\nFecha propuesta: {sesion.fecha}\nHora propuesta: {sesion.hora}\n\nContinuamos?"
+                texto_respuesta = f"Datos registrados.\nNombre: {sesion.nombre}\nDireccion: {sesion.direccion}\nTipo de servicio: {sesion.descripcion}\nFecha propuesta: {sesion.fecha}\nHora propuesta: {sesion.hora}\n\nResponda CONTINUAR para agendar su visita"
                 datos_capturados += "\n\nTODOS LOS DATOS ESTÁN COMPLETOS. Si el cliente confirma, responde ÚNICAMENTE: CITA"
             else:
                 faltantes = []
@@ -522,7 +522,7 @@ async def procesar_mensaje(numero: str, Body: str, db) -> str:
         except Exception as e:
             print(f"DEBUG DATO - error: {e}")
 
-    if "CITA" in texto_respuesta: # Detectar la intención de cita
+    if "CITANU" in texto_respuesta: # Detectar la intención de cita
         try:
             sesion = db.query(SesionCita).filter_by(numero=numero).first()
             # No pasa a la pinche cita si DATOS no están completos. Asi que SIEMPRE estarán completos en este bloque
