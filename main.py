@@ -27,7 +27,7 @@ meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto
 def construir_system_prompt(datos_capturados: str = ""):
     db = SessionLocal()
     ahora_mexico = datetime.now(MEXICO_TZ)# + timedelta(days=3)
-    fecha_hoy = ahora_mexico.strftime("%d/%m/%Y") 
+    fecha_hoy = ahora_mexico.date() 
     agenda_hoy_texto = agenda_hoy(db=db, hoy= fecha_hoy)
     mañana = (ahora_mexico + timedelta(days=1)).date() # Obtener 1° horario disponible a partir del día siguiente
     horario_visita, fecha_visita = buscar_horario_disponible(db=db, fecha_inicio=mañana, isServ=False)
