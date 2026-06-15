@@ -90,8 +90,9 @@ DATOS CAPTURADOS DEL CLIENTE:
   infórmale que contacte al {numero_admin} para agendar la cita
 
 CUANDO TENGAS TODOS LOS DATOS (nombre, dirección, descripción, fecha, hora):
-- Si el cliente confirma los datos con "sí", "continuar", "correcto" o similar, responde ÚNICAMENTE: CITANU
+- Si el cliente responde afirmativamente ("CONTINUAR", "Continuar", "continuar") responde ÚNICAMENTE la palabra: CITANU
 - No vuelvas a generar DATOS: si ya están todos capturados
+- CITANU es la única respuesta válida cuando el cliente confirma
 
 """
 
