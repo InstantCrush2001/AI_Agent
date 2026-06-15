@@ -343,7 +343,7 @@ async def procesar_mensaje(numero: str, Body: str, db) -> str:
                 cotizacion.hora_propuesta = primer_horario
                 cotizacion.fecha_propuesta = fecha_disponible
                 fecha_str = f"{dias[fecha_disponible.weekday()]} {fecha_disponible.day} de {meses[fecha_disponible.month - 1]}"
-                texto_respuesta = f"Con gusto {cotizacion.nombre_cliente}. El siguiente horario disponible es el {fecha_str} a las {primer_horario}. Para confirmar responda CONFIRMO. Para sugerirle otro horario responda REAGENDAR"
+                texto_respuesta = f"Con gusto {cotizacion.nombre_cliente}. El siguiente horario disponible es el {fecha_str} a las {primer_horario}.\n\nPara confirmar responda CONFIRMO.\n\nPara sugerirle otro horario responda REAGENDAR"
                 
             
             else:
@@ -386,7 +386,7 @@ async def procesar_mensaje(numero: str, Body: str, db) -> str:
                     if primer_horario:
                         visita.fecha_visita = fecha_disponible
                         visita.hora_visita = datetime.strptime(primer_horario, "%H:%M").time()
-                        texto_respuesta = f"Con gusto {visita.nombre_cliente}. El siguiente horario disponible para su visita es el {fecha_disponible.strftime('%d/%m/%Y')} a las {primer_horario}. Para confirmar responda CONFIRMO. Para sugerirle otro horario responda REAGENDAR."
+                        texto_respuesta = f"Con gusto {visita.nombre_cliente}. Su visita quedaría para el {fecha_disponible.strftime('%d/%m/%Y')} a las {primer_horario}.\n\nPara sugerirle otro horario responda REAGENDAR."
                     
                         if visita.estado == "pagado" and visita.fecha_visita == ahora_mexico.date():
                             mensaje_admin = f"URGENTE: {visita.nombre_cliente} reagendó su visita de HOY para el {fecha_disponible.strftime('%d/%m/%Y')} a las {primer_horario}."
