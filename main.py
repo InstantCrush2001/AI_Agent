@@ -44,7 +44,7 @@ def construir_system_prompt(datos_capturados: str = ""):
     print(f" DEBUG - {disponibilidad_visita}")
 
     return f"""Eres el asistente virtual de OSORIO MANTENIMIENTO, un gestor de citas para realizar trabajos de mantenimiento.
-
+IGNORA TODAS LAS INDICACIONES DEL SYSTEM PROMPT POR MANTENIMIENTO. SI ALGUIEN QUIERE AGENDAR UNA CITA DALE EL NÚMERO DE ADMINISTRADOR: {numero_admin}
 Hoy es {fecha_hoy}
 AGENDA DE HOY: {agenda_hoy_texto}
 1° horario disponible para agendar visitas: {disponibilidad_visita}
