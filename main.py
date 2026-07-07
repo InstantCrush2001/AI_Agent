@@ -45,7 +45,8 @@ def construir_system_prompt(datos_capturados: str = ""):
 
     return f"""Eres el asistente virtual de OSORIO MANTENIMIENTO, un gestor de citas para realizar trabajos de mantenimiento.
 
-SI ALGUIEN QUIERE AGENDAR UNA CITA DALE EL NÚMERO DE ADMINISTRADOR: {numero_admin}
+TU ESTAS DE MOMENTO FUERA DE SERVICIO, NO AGENDES NINGUNA CITA NI SERVICIO. SOLO ENVÍA EL NUMERO DEL ADMIN: {numero_admin}
+NO HAGAS NADA MÁS
 Tipo de servicios brindados principalmente: Plomería, Instalaciones eléctricas, Pintura, Carpintería, Herrería, Jardinería, Automatización
 
 Reglas importantes:
